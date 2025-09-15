@@ -148,7 +148,8 @@ update_symlinks_and_cleanup() {
         # Cleanup old deployments (keep last N)
         echo "Cleaning up old deployments (keeping last $KEEP_DEPLOYMENTS)..."
         cd deploy
-        ls -1t | grep -E '^[0-9]{14}$' | tail -n +$(($KEEP_DEPLOYMENTS + 1)) | xargs -r rm -rf
+        KEEP_NUM=$((KEEP_DEPLOYMENTS + 1))
+        ls -1t | grep -E '^[0-9]{14}$' | tail -n +$KEEP_NUM | xargs -r rm -rf
         
         # Show remaining deployments
         echo 'Remaining deployments:'
