@@ -114,34 +114,37 @@ pipeline {
                 echo "📦 Building project..."
 
                 sh '''
-                    # Clean and install dependencies
+                    # Install global tools first
+                    echo "🔧 Installing global tools..."
+                    npm install -g eslint@^9.35.0 jest@^30.1.3
+                    
+                    # Clean and install local dependencies
                     rm -rf node_modules package-lock.json
                     npm install --silent
 
                     # Verify installations
                     echo "🔍 Verifying installations..."
                     
-                    # Check if eslint is available
-                    if [ -f "node_modules/.bin/eslint" ]; then
-                        echo "✅ ESLint installed successfully"
-                        ./node_modules/.bin/eslint --version
+                    # Check global eslint
+                    if command -v eslint >/dev/null 2>&1; then
+                        echo "✅ ESLint (global) installed successfully"
+                        eslint --version
                     else
-                        echo "❌ ESLint not found, installing globally as fallback"
-                        npm install -g eslint@^9.35.0
+                        echo "❌ ESLint global installation failed"
                     fi
                     
-                    # Check if jest is available  
-                    if [ -f "node_modules/.bin/jest" ]; then
-                        echo "✅ Jest installed successfully"
-                        ./node_modules/.bin/jest --version
+                    # Check global jest
+                    if command -v jest >/dev/null 2>&1; then
+                        echo "✅ Jest (global) installed successfully"
+                        jest --version
                     else
-                        echo "❌ Jest not found"
+                        echo "❌ Jest global installation failed"
                     fi
 
                     # Verify Firebase CLI
                     firebase --version >/dev/null 2>&1 || { echo "❌ Firebase CLI verification failed"; exit 1; }
 
-                    echo "✅ Build completed"
+                    echo "✅ Build completed with global tools"
                 '''
             }
         }
@@ -151,29 +154,12 @@ pipeline {
                 echo "🧪 Running linting and tests..."
 
                 sh '''
-                    echo "🔍 Running test:ci (lint + test)..."
-                    
-                    # Ensure we can find eslint and jest
-                    export PATH="$PWD/node_modules/.bin:$PATH"
-                    
-                    # Run linting first
-                    echo "🔍 Running ESLint..."
-                    if [ -f "node_modules/.bin/eslint" ]; then
-                        ./node_modules/.bin/eslint 'js/**/*.js' --max-warnings 0
-                    else
-                        npx eslint 'js/**/*.js' --max-warnings 0
-                    fi
-                    
+                    echo "🔍 Running ESLint (global)..."
+                    eslint 'js/**/*.js' --max-warnings 0
                     echo "✅ Linting passed!"
                     
-                    # Run tests
-                    echo "🧪 Running Jest tests..."
-                    if [ -f "node_modules/.bin/jest" ]; then
-                        ./node_modules/.bin/jest
-                    else
-                        npx jest
-                    fi
-                    
+                    echo "🧪 Running Jest tests (global)..."
+                    jest
                     echo "✅ All tests and linting passed!"
                 '''
             }
