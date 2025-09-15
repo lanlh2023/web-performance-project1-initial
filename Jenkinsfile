@@ -1,13 +1,14 @@
 pipeline {
     agent any
 
-    // TRIGGERS COMMENTED OUT - Manual trigger only for now
-    // triggers {
-    //     // Poll SCM every minute for changes
-    //     pollSCM('* * * * *')
-    //     // Alternative: Use webhook trigger if configured
-    //     // githubPush()
-    // }
+    triggers {
+        // Trigger immediately when changes are pushed to main branch
+        // Uses GitHub webhook for instant triggering
+        githubPush()
+
+        // Fallback: Poll SCM every minute as backup
+        pollSCM('* * * * *')
+    }
 
     parameters {
         choice(
@@ -50,6 +51,26 @@ pipeline {
     }
 
     stages {
+        stage('Branch Check') {
+            steps {
+                script {
+                    def currentBranch = env.GIT_BRANCH ?: sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
+                    echo "🌿 Current branch: ${currentBranch}"
+                    
+                    // Remove origin/ prefix if present
+                    currentBranch = currentBranch.replaceAll(/^origin\//, '')
+                    
+                    if (currentBranch != 'main') {
+                        echo "⚠️ Skipping deployment - not on main branch (current: ${currentBranch})"
+                        env.SKIP_DEPLOYMENT = 'true'
+                    } else {
+                        echo "✅ On main branch - proceeding with deployment"
+                        env.SKIP_DEPLOYMENT = 'false'
+                    }
+                }
+            }
+        }
+
         stage('Environment Check') {
             steps {
                 echo "🔍 Verifying build environment..."
@@ -141,8 +162,12 @@ pipeline {
 
         stage('Deploy') {
             when {
-                // Only deploy if tests pass
-                expression { currentBuild.currentResult == null || currentBuild.currentResult == 'SUCCESS' }
+                allOf {
+                    // Only deploy if tests pass
+                    expression { currentBuild.currentResult == null || currentBuild.currentResult == 'SUCCESS' }
+                    // Only deploy on main branch
+                    expression { env.SKIP_DEPLOYMENT != 'true' }
+                }
             }
 
             steps {
@@ -235,102 +260,53 @@ pipeline {
     }
 }
 
-// Function to send Slack notifications
 def sendSlackNotification(boolean isSuccess) {
     try {
-        // Check if SLACK_WEBHOOK_URL exists
+        // Skip if webhook not configured
         if (!env.SLACK_WEBHOOK_URL) {
-            echo "⚠️ SLACK_WEBHOOK_URL not configured, skipping Slack notification"
+            echo "⚠️ SLACK_WEBHOOK_URL not configured, skipping notification"
             return
         }
 
-        def gitAuthor = "Unknown"
-        def gitCommit = "No commit message"
-        def gitTimestamp = sh(script: 'date -u +"%Y-%m-%d %H:%M:%S UTC"', returnStdout: true).trim()
-        
-        // Safely get git information
-        try {
-            gitAuthor = sh(script: 'git log -1 --pretty=format:"%an" 2>/dev/null || echo "Unknown"', returnStdout: true).trim()
-            gitCommit = sh(script: 'git log -1 --pretty=format:"%s" 2>/dev/null || echo "No commit message"', returnStdout: true).trim()
-        } catch (Exception gitError) {
-            echo "⚠️ Could not retrieve git information: ${gitError.getMessage()}"
-        }
-        
-        def slackMessage = ""
-        
-        if (isSuccess) {
-            def deployTarget = params.DEPLOY_ENVIRONMENT
-            def releaseDate = sh(script: 'date +%Y%m%d', returnStdout: true).trim()
+        // Get git info safely
+        def author = sh(script: 'git log -1 --pretty=format:"%an" 2>/dev/null || echo "Unknown"', returnStdout: true).trim()
+        def releaseDate = sh(script: 'date +%Y%m%d', returnStdout: true).trim()
 
-            // Build success message with new format
-            slackMessage = ":white_check_mark: *SUCCESS*\n" +
-                          ":bust_in_silhouette: User: ${gitAuthor}\n" +
-                          ":gear: Job: ${env.JOB_NAME}\n" +
-                          ":hash: Build: #${env.BUILD_NUMBER}\n" +
-                          ":calendar: Release: ${releaseDate}"
+        // Build message
+        def message = isSuccess ? 
+            ":white_check_mark: *SUCCESS*\n:bust_in_silhouette: ${author}\n:gear: ${env.JOB_NAME} #${env.BUILD_NUMBER}\n:calendar: Release: ${releaseDate}" +
+            getDeploymentLinks() :
+            ":x: *FAILURE*\n:bust_in_silhouette: ${author}\n:gear: ${env.JOB_NAME} #${env.BUILD_NUMBER}\n:page_with_curl: ${env.BUILD_URL}console"
 
-            // Add deployment links based on environment
-            if (deployTarget == 'firebase' || deployTarget == 'both') {
-                slackMessage += "\n:fire: Firebase: https://${env.FIREBASE_PROJECT}.web.app"
-            }
-            if (deployTarget == 'remote' || deployTarget == 'both') {
-                slackMessage += "\n:globe_with_meridians: Remote: http://${env.WEB_SERVER}/jenkins/${env.DEPLOY_USER}/current/"
-            }
-            if (deployTarget == 'local') {
-                slackMessage += "\n:computer: Local: Deployment completed successfully"
-            }
-            
-        } else {
-            // Build failure message with consistent format
-            slackMessage = ":x: *FAILURE*\n" +
-                          ":bust_in_silhouette: User: ${gitAuthor}\n" +
-                          ":gear: Job: ${env.JOB_NAME}\n" +
-                          ":hash: Build: #${env.BUILD_NUMBER}\n" +
-                          ":warning: Environment: ${params.DEPLOY_ENVIRONMENT}\n" +
-                          ":page_with_curl: Build Log: ${env.BUILD_URL}console"
-        }
-        
-        echo "📤 Sending Slack notification..."
-        echo "Message preview: ${slackMessage}"
-        
-        // Create JSON payload file to avoid shell escaping issues and security warnings
-        def payloadJson = groovy.json.JsonOutput.toJson([
-            text: slackMessage,
-            username: "Jenkins",
-            icon_emoji: ":jenkins:"
-        ])
-        
-        // Write payload to temporary file to avoid shell injection and security issues
-        writeFile file: 'slack-payload.json', text: payloadJson
-        
-        // Use curl with proper credentials handling
-        def curlResult = ''
+        // Send notification
+        def payload = groovy.json.JsonOutput.toJson([text: message, username: "Jenkins", icon_emoji: ":jenkins:"])
+        writeFile file: 'payload.json', text: payload
+
         withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'WEBHOOK_URL')]) {
-            curlResult = sh(
-                script: '''
-                    curl -X POST \
-                         -H "Content-type: application/json" \
-                         --data @slack-payload.json \
-                         "$WEBHOOK_URL" \
-                         -w "%{http_code}" \
-                         -s -o /dev/null
-                ''',
-                returnStdout: true
-            ).trim()
+            def result = sh(script: 'curl -X POST -H "Content-type: application/json" --data @payload.json "$WEBHOOK_URL" -w "%{http_code}" -s -o /dev/null', returnStdout: true).trim()
+            echo result == '200' ? "✅ Slack sent successfully" : "⚠️ Slack failed (${result})"
         }
-        
-        // Clean up temporary file
-        sh 'rm -f slack-payload.json'
 
-        if (curlResult == '200') {
-            echo "✅ Slack notification sent successfully (HTTP ${curlResult})"
-        } else {
-            echo "⚠️ Slack notification may have failed (HTTP ${curlResult})"
-        }
-        
+        sh 'rm -f payload.json'
+
     } catch (Exception e) {
-        echo "⚠️ Slack notification failed: ${e.getMessage()}"
-        echo "⚠️ Stack trace: ${e.toString()}"
-        // Don't fail the build because of notification failure
+        echo "⚠️ Slack notification error: ${e.getMessage()}"
     }
+}
+
+def getDeploymentLinks() {
+    def target = params.DEPLOY_ENVIRONMENT
+    def links = ""
+
+    if (target == 'firebase' || target == 'both') {
+        links += "\n:fire: Firebase: https://${env.FIREBASE_PROJECT}.web.app"
+    }
+    if (target == 'remote' || target == 'both') {
+        links += "\n:globe_with_meridians: Remote: http://${env.WEB_SERVER}/jenkins/${env.DEPLOY_USER}/current/"
+    }
+    if (target == 'local') {
+        links += "\n:computer: Local: Deployment completed"
+    }
+
+    return links
 }
