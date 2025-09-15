@@ -289,6 +289,10 @@ def sendSlackNotification(boolean isSuccess) {
             if (env.SLACK_TOKEN.startsWith("https://hooks.slack.com/")) {
                 WEBHOOK_URL = env.SLACK_TOKEN
                 echo "✅ Using full webhook URL"
+                // Debug URL format (safely)
+                def urlLength = env.SLACK_TOKEN.length()
+                def urlPreview = env.SLACK_TOKEN.substring(0, Math.min(50, urlLength)) + "..."
+                echo "🔍 URL preview: ${urlPreview} (length: ${urlLength})"
             } else {
                 // Assume it's just the token part and build full URL
                 // Format: https://hooks.slack.com/services/T00000000/B00000000/TOKEN
@@ -298,6 +302,29 @@ def sendSlackNotification(boolean isSuccess) {
                 echo "❌ Please update credential 'slack-webhook-url' with full webhook URL"
                 echo "💡 Format: https://hooks.slack.com/services/T00000000/B00000000/YOUR_TOKEN"
                 return
+            }
+            
+            // Validate URL more thoroughly
+            def urlValidation = sh(
+                script: '''
+                    # Check if URL is properly formatted
+                    if echo "$SLACK_TOKEN" | grep -qE '^https://hooks\.slack\.com/services/[A-Z0-9]+/[A-Z0-9]+/[A-Za-z0-9]+$'; then
+                        echo "VALID"
+                    else
+                        echo "INVALID"
+                        echo "URL_DEBUG:$(echo "$SLACK_TOKEN" | sed 's/./*/g')"
+                    fi
+                ''',
+                returnStdout: true
+            ).trim()
+            
+            if (urlValidation.contains("INVALID")) {
+                echo "❌ Webhook URL format validation failed"
+                echo "💡 Expected format: https://hooks.slack.com/services/T00000000/B00000000/TOKEN"
+                echo "🔍 Debug info: ${urlValidation}"
+                return
+            } else {
+                echo "✅ Webhook URL format validated"
             }
             
             // Send with better error handling and timeout
@@ -311,7 +338,7 @@ def sendSlackNotification(boolean isSuccess) {
                         --max-time 30 \
                         -w "HTTPCODE:%{http_code}" \
                         -s \
-                        "$WEBHOOK_URL" 2>&1)
+                        "$SLACK_TOKEN" 2>&1)
                     curl_exit_code=$?
                     echo "EXIT_CODE:$curl_exit_code"
                     echo "$curl_output"
@@ -331,10 +358,15 @@ def sendSlackNotification(boolean isSuccess) {
                 echo "✅ Slack notification sent successfully"
             } else {
                 echo "⚠️ Slack notification failed - Exit: ${exitCode}, HTTP: ${httpCode}"
-                if (exitCode == '6') {
+                if (exitCode == '3') {
+                    echo "💡 Exit code 3 means: URL malformed or invalid format"
+                    echo "🔧 Check webhook URL format in Jenkins credentials"
+                } else if (exitCode == '6') {
                     echo "💡 Exit code 6 usually means: Could not resolve host or invalid URL"
                 } else if (exitCode == '7') {
                     echo "💡 Exit code 7 usually means: Failed to connect to host"
+                } else if (exitCode == '28') {
+                    echo "💡 Exit code 28 means: Operation timeout"
                 }
             }
         }
