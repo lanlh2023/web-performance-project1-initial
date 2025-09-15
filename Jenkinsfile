@@ -237,46 +237,83 @@ pipeline {
 
 // Function to send Slack notifications
 def sendSlackNotification(boolean isSuccess) {
-    def gitAuthor = sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
-    def gitCommit = sh(script: 'git log -1 --pretty=format:"%s"', returnStdout: true).trim()
-    def gitTimestamp = sh(script: 'date -u "+%Y-%m-%d %H:%M:%S UTC"', returnStdout: true).trim()
-    
-    def slackMessage = ""
-    
-    if (isSuccess) {
-        def links = []
-        def deployTarget = params.DEPLOY_ENVIRONMENT
-        
-        if (deployTarget == 'firebase' || deployTarget == 'both') {
-            links.add("• Firebase: https://${env.FIREBASE_PROJECT}.web.app")
-        }
-        if (deployTarget == 'remote' || deployTarget == 'both') {
-            links.add("• Remote: http://${env.WEB_SERVER}/jenkins/${env.DEPLOY_USER}/current/")
-        }
-        
-        slackMessage = ":white_check_mark: *Deployment Successful!*\\n" +
-                      "*Author:* ${gitAuthor}\\n" +
-                      "*Commit:* ${gitCommit}\\n" +
-                      "*Time:* ${gitTimestamp}\\n" +
-                      "*Links:*\\n" +
-                      links.join('\\n')
-    } else {
-        slackMessage = ":x: *Deployment Failed!*\\n" +
-                      "*Author:* ${gitAuthor}\\n" +
-                      "*Commit:* ${gitCommit}\\n" +
-                      "*Time:* ${gitTimestamp}"
-    }
-    
     try {
-        httpRequest(
+        // Check if SLACK_WEBHOOK_URL exists
+        if (!env.SLACK_WEBHOOK_URL) {
+            echo "⚠️ SLACK_WEBHOOK_URL not configured, skipping Slack notification"
+            return
+        }
+
+        def gitAuthor = "Unknown"
+        def gitCommit = "No commit message"
+        def gitTimestamp = new Date().format("yyyy-MM-dd HH:mm:ss UTC")
+        
+        // Safely get git information
+        try {
+            gitAuthor = sh(script: 'git log -1 --pretty=format:"%an" 2>/dev/null || echo "Unknown"', returnStdout: true).trim()
+            gitCommit = sh(script: 'git log -1 --pretty=format:"%s" 2>/dev/null || echo "No commit message"', returnStdout: true).trim()
+        } catch (Exception gitError) {
+            echo "⚠️ Could not retrieve git information: ${gitError.getMessage()}"
+        }
+        
+        def slackMessage = ""
+        
+        if (isSuccess) {
+            def links = []
+            def deployTarget = params.DEPLOY_ENVIRONMENT
+            
+            if (deployTarget == 'firebase' || deployTarget == 'both') {
+                links.add("• Firebase: https://${env.FIREBASE_PROJECT}.web.app")
+            }
+            if (deployTarget == 'remote' || deployTarget == 'both') {
+                links.add("• Remote: http://${env.WEB_SERVER}/jenkins/${env.DEPLOY_USER}/current/")
+            }
+            if (deployTarget == 'local') {
+                links.add("• Local deployment completed")
+            }
+            
+            def linksText = links.size() > 0 ? links.join('\n') : "No links available"
+            
+            slackMessage = ":white_check_mark: *Deployment Successful!*\n" +
+                          "*Author:* ${gitAuthor}\n" +
+                          "*Commit:* ${gitCommit}\n" +
+                          "*Time:* ${gitTimestamp}\n" +
+                          "*Environment:* ${deployTarget}\n" +
+                          "*Links:*\n" +
+                          linksText
+        } else {
+            slackMessage = ":x: *Deployment Failed!*\n" +
+                          "*Author:* ${gitAuthor}\n" +
+                          "*Commit:* ${gitCommit}\n" +
+                          "*Time:* ${gitTimestamp}\n" +
+                          "*Environment:* ${params.DEPLOY_ENVIRONMENT}\n" +
+                          "*Build:* ${env.BUILD_URL}"
+        }
+        
+        // Create payload
+        def payload = [
+            text: slackMessage,
+            username: "Jenkins",
+            icon_emoji: ":jenkins:"
+        ]
+        
+        echo "📤 Sending Slack notification..."
+        echo "Message preview: ${slackMessage}"
+        
+        def response = httpRequest(
             httpMode: 'POST',
             contentType: 'APPLICATION_JSON',
-            requestBody: groovy.json.JsonOutput.toJson([text: slackMessage]),
+            requestBody: groovy.json.JsonOutput.toJson(payload),
             url: env.SLACK_WEBHOOK_URL,
-            validResponseCodes: '200'
+            validResponseCodes: '200:299',
+            quiet: true
         )
-        echo "✅ Slack notification sent"
+        
+        echo "✅ Slack notification sent successfully (HTTP ${response.status})"
+        
     } catch (Exception e) {
         echo "⚠️ Slack notification failed: ${e.getMessage()}"
+        echo "⚠️ Stack trace: ${e.toString()}"
+        // Don't fail the build because of notification failure
     }
 }
