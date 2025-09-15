@@ -260,7 +260,7 @@ def sendSlackNotification(boolean isSuccess) {
         
         if (isSuccess) {
             def deployTarget = params.DEPLOY_ENVIRONMENT
-            def releaseDate = new Date().format("yyyyMMdd")
+            def releaseDate = sh(script: 'date +%Y%m%d', returnStdout: true).trim()
 
             // Build success message with new format
             slackMessage = ":white_check_mark: *SUCCESS*\n" +
