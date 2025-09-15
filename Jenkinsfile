@@ -118,6 +118,26 @@ pipeline {
                     rm -rf node_modules package-lock.json
                     npm install --silent
 
+                    # Verify installations
+                    echo "🔍 Verifying installations..."
+                    
+                    # Check if eslint is available
+                    if [ -f "node_modules/.bin/eslint" ]; then
+                        echo "✅ ESLint installed successfully"
+                        ./node_modules/.bin/eslint --version
+                    else
+                        echo "❌ ESLint not found, installing globally as fallback"
+                        npm install -g eslint@^9.35.0
+                    fi
+                    
+                    # Check if jest is available  
+                    if [ -f "node_modules/.bin/jest" ]; then
+                        echo "✅ Jest installed successfully"
+                        ./node_modules/.bin/jest --version
+                    else
+                        echo "❌ Jest not found"
+                    fi
+
                     # Verify Firebase CLI
                     firebase --version >/dev/null 2>&1 || { echo "❌ Firebase CLI verification failed"; exit 1; }
 
@@ -132,8 +152,28 @@ pipeline {
 
                 sh '''
                     echo "🔍 Running test:ci (lint + test)..."
-                    npm run test:ci
-
+                    
+                    # Ensure we can find eslint and jest
+                    export PATH="$PWD/node_modules/.bin:$PATH"
+                    
+                    # Run linting first
+                    echo "🔍 Running ESLint..."
+                    if [ -f "node_modules/.bin/eslint" ]; then
+                        ./node_modules/.bin/eslint 'js/**/*.js' --max-warnings 0
+                    else
+                        npx eslint 'js/**/*.js' --max-warnings 0
+                    fi
+                    
+                    echo "✅ Linting passed!"
+                    
+                    # Run tests
+                    echo "🧪 Running Jest tests..."
+                    if [ -f "node_modules/.bin/jest" ]; then
+                        ./node_modules/.bin/jest
+                    else
+                        npx jest
+                    fi
+                    
                     echo "✅ All tests and linting passed!"
                 '''
             }
