@@ -114,22 +114,37 @@ pipeline {
                 echo "📦 Building project..."
 
                 sh '''
-                    # Clean and install dependencies
+                    # Clean and install dependencies with full dependency resolution
                     rm -rf node_modules package-lock.json
-                    npm install --silent
+                    npm cache clean --force
+                    npm install --no-optional --no-audit --silent
 
-                    # Verify installations
-                    echo "🔍 Verifying installations..."
+                    # Verify critical ESLint dependencies
+                    echo "🔍 Verifying ESLint dependencies..."
                     
-                    # Check if eslint is available locally
-                    if [ -f "node_modules/.bin/eslint" ]; then
-                        echo "✅ ESLint installed successfully"
-                        ./node_modules/.bin/eslint --version
-                    else
-                        echo "❌ ESLint not found in node_modules"
+                    if [ ! -f "node_modules/@eslint/js/package.json" ]; then
+                        echo "⚠️ @eslint/js missing, installing explicitly..."
+                        npm install @eslint/js --no-audit --silent
                     fi
                     
-                    # Check if jest is available locally
+                    if [ ! -f "node_modules/globals/package.json" ]; then
+                        echo "⚠️ globals missing, installing explicitly..."
+                        npm install globals --no-audit --silent
+                    fi
+                    
+                    # Verify installations
+                    echo "🔍 Final verification..."
+                    
+                    # Check ESLint and its dependencies
+                    if [ -f "node_modules/.bin/eslint" ] && [ -f "node_modules/@eslint/js/package.json" ]; then
+                        echo "✅ ESLint and dependencies installed successfully"
+                        ./node_modules/.bin/eslint --version
+                    else
+                        echo "❌ ESLint or dependencies missing"
+                        ls -la node_modules/@eslint/ || echo "No @eslint directory"
+                    fi
+                    
+                    # Check Jest
                     if [ -f "node_modules/.bin/jest" ]; then
                         echo "✅ Jest installed successfully"
                         ./node_modules/.bin/jest --version
@@ -140,7 +155,7 @@ pipeline {
                     # Verify Firebase CLI
                     firebase --version >/dev/null 2>&1 || { echo "❌ Firebase CLI verification failed"; exit 1; }
 
-                    echo "✅ Build completed"
+                    echo "✅ Build completed with verified dependencies"
                 '''
             }
         }
@@ -150,11 +165,21 @@ pipeline {
                 echo "🧪 Running linting and tests..."
 
                 sh '''
-                    echo "🔍 Running ESLint..."
-                    # Try local binary first, then npx as fallback
+                    echo "🔍 Testing ESLint configuration..."
+                    # Test if ESLint config is valid
                     if [ -f "node_modules/.bin/eslint" ]; then
+                        echo "Testing ESLint config validity..."
+                        ./node_modules/.bin/eslint --print-config eslint.config.js >/dev/null 2>&1 || {
+                            echo "❌ ESLint config invalid, checking dependencies..."
+                            ls -la node_modules/@eslint/ || echo "No @eslint directory"
+                            exit 1
+                        }
+                        echo "✅ ESLint config is valid"
+                        
+                        echo "🔍 Running ESLint..."
                         ./node_modules/.bin/eslint 'js/**/*.js' --max-warnings 0
                     else
+                        echo "🔍 Running ESLint via npx..."
                         npx eslint 'js/**/*.js' --max-warnings 0
                     fi
                     echo "✅ Linting passed!"
