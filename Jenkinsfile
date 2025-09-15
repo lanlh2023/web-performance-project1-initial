@@ -303,19 +303,22 @@ def sendSlackNotification(boolean isSuccess) {
         // Write payload to temporary file to avoid shell injection and security issues
         writeFile file: 'slack-payload.json', text: payloadJson
         
-        // Use curl with file input to avoid security warnings and escaping issues
-        def curlResult = sh(
-            script: '''
-                curl -X POST \
-                     -H "Content-type: application/json" \
-                     --data @slack-payload.json \
-                     "${SLACK_WEBHOOK_URL}" \
-                     -w "%{http_code}" \
-                     -s -o /dev/null
-            ''',
-            returnStdout: true
-        ).trim()
-
+        // Use curl with proper credentials handling
+        def curlResult = ''
+        withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'WEBHOOK_URL')]) {
+            curlResult = sh(
+                script: '''
+                    curl -X POST \
+                         -H "Content-type: application/json" \
+                         --data @slack-payload.json \
+                         "$WEBHOOK_URL" \
+                         -w "%{http_code}" \
+                         -s -o /dev/null
+                ''',
+                returnStdout: true
+            ).trim()
+        }
+        
         // Clean up temporary file
         sh 'rm -f slack-payload.json'
 
