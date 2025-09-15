@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    triggers {
+        // GitHub hook trigger for GITScm polling
+        githubPush()
+    }
 
     parameters {
         choice(
