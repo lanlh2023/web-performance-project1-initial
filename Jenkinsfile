@@ -4,8 +4,8 @@ pipeline {
     parameters {
         choice(
             name: 'DEPLOY_ENVIRONMENT',
-            choices: ['local', 'remote', 'both'],
-            description: 'Choose deployment environment: local (Firebase), remote (Server), or both'
+            choices: ['local', 'remote', 'firebase', 'both'],
+            description: 'Choose deployment environment: local (template2), remote (Server), firebase (Hosting), or both'
         )
         string(
             name: 'YOUR_NAME',
@@ -115,11 +115,11 @@ pipeline {
                     // Prepare deployment files
                     sh '''
                         echo "📦 Preparing deployment package..."
-                        
+
                         # Create deployment staging area
                         rm -rf deploy-staging
                         mkdir -p deploy-staging
-                        
+
                         # Copy only necessary files for deployment
                         echo "📋 Copying deployment files:"
                         cp index.html deploy-staging/
@@ -127,11 +127,11 @@ pipeline {
                         cp -r css deploy-staging/
                         cp -r js deploy-staging/
                         cp -r images deploy-staging/
-                        
+
                         # Optional: copy firebase config if exists
                         [ -f firebase.json ] && cp firebase.json deploy-staging/
                         [ -f .firebaserc ] && cp .firebaserc deploy-staging/
-                        
+
                         echo "✅ Deployment package prepared:"
                         ls -la deploy-staging/
                     '''
@@ -139,18 +139,37 @@ pipeline {
                     // Deploy to local using deploy-local.sh script
                     if (params.DEPLOY_ENVIRONMENT == 'local' || params.DEPLOY_ENVIRONMENT == 'both') {
                         echo "📱 Deploying to Local (jenkins-ws/template2)..."
-                        
+
                         sh '''
                             echo "🔧 Running local deployment script..."
-                            
+
                             # Make sure the script is executable
                             chmod +x deploy-local.sh
-                            
+
                             echo "🚀 Executing deploy-local.sh..."
                             ./deploy-local.sh
-                            
+
                             echo "✅ Local deployment completed!"
                         '''
+                    }
+
+                    // Deploy to Firebase Hosting
+                    if (params.DEPLOY_ENVIRONMENT == 'firebase' || params.DEPLOY_ENVIRONMENT == 'both') {
+                        echo "🔥 Deploying to Firebase Hosting..."
+                        
+                        withCredentials([string(credentialsId: 'firebase-service-account-key', variable: 'FIREBASE_SERVICE_ACCOUNT_KEY')]) {
+                            sh '''
+                                echo "🔧 Running Firebase deployment script..."
+                                
+                                # Make sure the script is executable
+                                chmod +x deploy-firebase.sh
+                                
+                                echo "🚀 Executing deploy-firebase.sh..."
+                                ./deploy-firebase.sh
+                                
+                                echo "✅ Firebase deployment completed!"
+                            '''
+                        }
                     }
 
                     // Deploy to remote server
@@ -218,6 +237,11 @@ pipeline {
                 if (params.DEPLOY_ENVIRONMENT == 'local' || params.DEPLOY_ENVIRONMENT == 'both') {
                     message += "📱 Local: jenkins-ws/template2/current/\\n"
                     message += "🔗 Access: file://jenkins-ws/template2/current/index.html\\n"
+                }
+
+                if (params.DEPLOY_ENVIRONMENT == 'firebase' || params.DEPLOY_ENVIRONMENT == 'both') {
+                    message += "🔥 Firebase: https://lanlh-workshop2.web.app/\\n"
+                    message += "🔗 Alternative: https://lanlh-workshop2.firebaseapp.com/\\n"
                 }
 
                 if (params.DEPLOY_ENVIRONMENT == 'remote' || params.DEPLOY_ENVIRONMENT == 'both') {
