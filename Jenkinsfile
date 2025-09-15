@@ -236,18 +236,6 @@ pipeline {
     }
 
     post {
-        success {
-            script { ->
-                // sendSlackNotification(true)
-            }
-        }
-
-        failure {
-            script { ->
-                // sendSlackNotification(false)
-            }
-        }
-
         always {
             // Clean up
             sh 'rm -rf deploy-staging'
