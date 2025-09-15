@@ -112,53 +112,30 @@ pipeline {
         stage('Build') {
             steps {
                 echo "📦 Building project..."
-
                 sh '''
-                    # Clean installation to resolve dependency conflicts
-                    echo "🧹 Cleaning previous installations..."
+                    # Clean và install
                     rm -rf node_modules package-lock.json
                     npm cache clean --force
                     
-                    echo "📦 Installing dependencies with conflict resolution..."
-                    npm install --no-optional --no-audit --silent
+                    # BỎ --silent để thấy lỗi
+                    npm install --no-optional --no-audit
                     
-                    # Dedupe to resolve version conflicts (as recommended by Stack Overflow)
-                    echo "🔧 Deduplicating dependencies to resolve conflicts..."
-                    npm dedupe
-                    
-                    # Verify no duplicate versions exist
-                    echo "🔍 Checking for dependency conflicts..."
-                    echo "Globals versions:"
-                    npm ls globals || true
-                    echo "@eslint/js versions:"
-                    npm ls @eslint/js || true
-                    
-                    # Verify installations
-                    echo "🔍 Final verification..."
-                    
-                    # Check ESLint and its dependencies
-                    if [ -f "node_modules/.bin/eslint" ] && [ -f "node_modules/@eslint/js/package.json" ]; then
-                        echo "✅ ESLint and dependencies installed successfully"
-                        ./node_modules/.bin/eslint --version
-                    else
-                        echo "❌ ESLint or dependencies missing"
-                        ls -la node_modules/@eslint/ || echo "No @eslint directory"
-                        exit 1
+                    # Cài ESLint nếu thiếu
+                    if [ ! -f "node_modules/.bin/eslint" ]; then
+                        echo "Installing ESLint..."
+                        npm install eslint --save-dev
                     fi
                     
-                    # Check Jest
-                    if [ -f "node_modules/.bin/jest" ]; then
-                        echo "✅ Jest installed successfully"
-                        ./node_modules/.bin/jest --version
-                    else
-                        echo "❌ Jest not found in node_modules"
-                        exit 1
+                    # Cài Jest nếu thiếu  
+                    if [ ! -f "node_modules/.bin/jest" ]; then
+                        echo "Installing Jest..."
+                        npm install jest --save-dev
                     fi
-
-                    # Verify Firebase CLI
-                    firebase --version >/dev/null 2>&1 || { echo "❌ Firebase CLI verification failed"; exit 1; }
-
-                    echo "✅ Build completed with conflict-free dependencies"
+                    
+                    # Verify
+                    ./node_modules/.bin/eslint --version || exit 1
+                    ./node_modules/.bin/jest --version || exit 1
+                    firebase --version || exit 1
                 '''
             }
         }
@@ -166,37 +143,23 @@ pipeline {
         stage('Lint/Test') {
             steps {
                 echo "🧪 Running linting and tests..."
-
                 sh '''
-                    echo "🔍 Testing ESLint configuration..."
-                    # Test if ESLint config is valid
+                    # Run ESLint
                     if [ -f "node_modules/.bin/eslint" ]; then
-                        echo "Testing ESLint config validity..."
-                        ./node_modules/.bin/eslint --print-config eslint.config.js >/dev/null 2>&1 || {
-                            echo "❌ ESLint config invalid, checking dependencies..."
-                            ls -la node_modules/@eslint/ || echo "No @eslint directory"
-                            exit 1
-                        }
-                        echo "✅ ESLint config is valid"
-                        
-                        echo "🔍 Running ESLint..."
                         ./node_modules/.bin/eslint 'js/**/*.js' --max-warnings 0
                     else
-                        echo "🔍 Running ESLint via npx..."
                         npx eslint 'js/**/*.js' --max-warnings 0
                     fi
-                    echo "✅ Linting passed!"
                     
-                    echo "🧪 Running Jest tests..."
-                    # Try local binary first, then npx as fallback
+                    # Run Jest
                     if [ -f "node_modules/.bin/jest" ]; then
                         ./node_modules/.bin/jest
                     else
                         npx jest
                     fi
-                    echo "✅ All tests and linting passed!"
                 '''
             }
+        }
 
             post {
                 always {
