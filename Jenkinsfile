@@ -276,19 +276,65 @@ def sendSlackNotification(boolean isSuccess) {
             getDeploymentLinks() :
             ":x: *FAILURE*\n:bust_in_silhouette: ${author}\n:gear: ${env.JOB_NAME} #${env.BUILD_NUMBER}\n:page_with_curl: ${env.BUILD_URL}console"
 
-        // Send notification
+        // Send notification with improved error handling
         def payload = groovy.json.JsonOutput.toJson([text: message, username: "Jenkins", icon_emoji: ":jenkins:"])
         writeFile file: 'payload.json', text: payload
 
         withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'WEBHOOK_URL')]) {
-            def result = sh(script: 'curl -X POST -H "Content-type: application/json" --data @payload.json "$WEBHOOK_URL" -w "%{http_code}" -s -o /dev/null', returnStdout: true).trim()
-            echo result == '200' ? "✅ Slack sent successfully" : "⚠️ Slack failed (${result})"
+            echo "🔗 Attempting to send Slack notification..."
+            echo "📝 Payload size: ${payload.length()} characters"
+            
+            // Validate webhook URL format
+            def urlCheck = sh(script: 'echo "$WEBHOOK_URL" | grep -E "^https://hooks.slack.com/services/" || echo "INVALID"', returnStdout: true).trim()
+            if (urlCheck == "INVALID") {
+                echo "❌ Invalid Slack webhook URL format"
+                return
+            }
+            
+            // Send with better error handling and timeout
+            def curlResult = sh(
+                script: '''
+                    set +e
+                    curl_output=$(curl -X POST \
+                        -H "Content-type: application/json" \
+                        --data @payload.json \
+                        --connect-timeout 10 \
+                        --max-time 30 \
+                        -w "HTTPCODE:%{http_code}" \
+                        -s \
+                        "$WEBHOOK_URL" 2>&1)
+                    curl_exit_code=$?
+                    echo "EXIT_CODE:$curl_exit_code"
+                    echo "$curl_output"
+                ''',
+                returnStdout: true
+            ).trim()
+            
+            // Parse results
+            def lines = curlResult.split('\n')
+            def exitCode = lines.find { it.startsWith('EXIT_CODE:') }?.split(':')[1] ?: 'unknown'
+            def httpCode = lines.find { it.contains('HTTPCODE:') }?.split('HTTPCODE:')[1] ?: 'unknown'
+            
+            echo "🔍 Curl exit code: ${exitCode}"
+            echo "🔍 HTTP response code: ${httpCode}"
+            
+            if (exitCode == '0' && httpCode == '200') {
+                echo "✅ Slack notification sent successfully"
+            } else {
+                echo "⚠️ Slack notification failed - Exit: ${exitCode}, HTTP: ${httpCode}"
+                if (exitCode == '6') {
+                    echo "💡 Exit code 6 usually means: Could not resolve host or invalid URL"
+                } else if (exitCode == '7') {
+                    echo "💡 Exit code 7 usually means: Failed to connect to host"
+                }
+            }
         }
 
         sh 'rm -f payload.json'
 
     } catch (Exception e) {
         echo "⚠️ Slack notification error: ${e.getMessage()}"
+        echo "📋 Stack trace: ${e.getStackTrace()}"
     }
 }
 
