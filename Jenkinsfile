@@ -46,7 +46,7 @@ pipeline {
         KEEP_DEPLOYMENTS = "${params.KEEP_DEPLOYMENTS}"  // Number of deployments to keep
 
         // Slack notification
-        SLACK_WEBHOOK_URL = credentials('slack-webhook-urlslack2')  // Slack webhook URL credential
+        SLACK_WEBHOOK_URL = credentials('slack-webhook-url')  // Slack webhook URL credential
     }
 
     stages {
@@ -259,35 +259,35 @@ def sendSlackNotification(boolean isSuccess) {
         def slackMessage = ""
         
         if (isSuccess) {
-            def links = []
             def deployTarget = params.DEPLOY_ENVIRONMENT
-            
+            def releaseDate = new Date().format("yyyyMMdd")
+
+            // Build success message with new format
+            slackMessage = ":white_check_mark: *SUCCESS*\n" +
+                          ":bust_in_silhouette: User: ${gitAuthor}\n" +
+                          ":gear: Job: ${env.JOB_NAME}\n" +
+                          ":hash: Build: #${env.BUILD_NUMBER}\n" +
+                          ":calendar: Release: ${releaseDate}"
+
+            // Add deployment links based on environment
             if (deployTarget == 'firebase' || deployTarget == 'both') {
-                links.add("• Firebase: https://${env.FIREBASE_PROJECT}.web.app")
+                slackMessage += "\n:fire: Firebase: https://${env.FIREBASE_PROJECT}.web.app"
             }
             if (deployTarget == 'remote' || deployTarget == 'both') {
-                links.add("• Remote: http://${env.WEB_SERVER}/jenkins/${env.DEPLOY_USER}/current/")
+                slackMessage += "\n:globe_with_meridians: Remote: http://${env.WEB_SERVER}/jenkins/${env.DEPLOY_USER}/current/"
             }
             if (deployTarget == 'local') {
-                links.add("• Local deployment completed")
+                slackMessage += "\n:computer: Local: Deployment completed successfully"
             }
             
-            def linksText = links.size() > 0 ? links.join('\n') : "No links available"
-            
-            slackMessage = ":white_check_mark: *Deployment Successful!*\n" +
-                          "*Author:* ${gitAuthor}\n" +
-                          "*Commit:* ${gitCommit}\n" +
-                          "*Time:* ${gitTimestamp}\n" +
-                          "*Environment:* ${deployTarget}\n" +
-                          "*Links:*\n" +
-                          linksText
         } else {
-            slackMessage = ":x: *Deployment Failed!*\n" +
-                          "*Author:* ${gitAuthor}\n" +
-                          "*Commit:* ${gitCommit}\n" +
-                          "*Time:* ${gitTimestamp}\n" +
-                          "*Environment:* ${params.DEPLOY_ENVIRONMENT}\n" +
-                          "*Build:* ${env.BUILD_URL}"
+            // Build failure message with consistent format
+            slackMessage = ":x: *FAILURE*\n" +
+                          ":bust_in_silhouette: User: ${gitAuthor}\n" +
+                          ":gear: Job: ${env.JOB_NAME}\n" +
+                          ":hash: Build: #${env.BUILD_NUMBER}\n" +
+                          ":warning: Environment: ${params.DEPLOY_ENVIRONMENT}\n" +
+                          ":page_with_curl: Build Log: ${env.BUILD_URL}console"
         }
         
         // Create payload
