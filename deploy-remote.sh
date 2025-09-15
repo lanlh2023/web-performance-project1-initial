@@ -81,11 +81,23 @@ check_prerequisites() {
 test_ssh_connection() {
     log "Testing SSH connection..."
     
-    if ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no -o ConnectTimeout=10 "$SSH_USER@$DEPLOY_SERVER" "echo 'SSH connection successful'" >/dev/null 2>&1; then
+    # Test with verbose output for debugging
+    log "Connecting to $SSH_USER@$DEPLOY_SERVER:$SSH_PORT..."
+    
+    if ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=60 "$SSH_USER@$DEPLOY_SERVER" "echo 'SSH connection successful'" 2>/dev/null; then
         success "SSH connection test passed"
     else
         error "SSH connection failed to $SSH_USER@$DEPLOY_SERVER:$SSH_PORT"
-        error "Please check your SSH credentials and network connectivity"
+        log "Debugging SSH connection..."
+        
+        # Try with verbose output for debugging
+        ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no -o ConnectTimeout=30 -v "$SSH_USER@$DEPLOY_SERVER" "echo 'SSH debug test'" 2>&1 | head -10
+        
+        error "Please check:"
+        error "1. SSH key permissions: chmod 600 $SSH_KEY"
+        error "2. Network connectivity to $DEPLOY_SERVER:$SSH_PORT"
+        error "3. SSH service running on remote server"
+        error "4. User $SSH_USER exists and has proper permissions"
         exit 1
     fi
 }
@@ -94,21 +106,35 @@ test_ssh_connection() {
 create_remote_directories() {
     log "Creating remote directory structure..."
     
-    ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$DEPLOY_SERVER" "
-        # Create deployment directories
-        mkdir -p $REMOTE_BASE_PATH/$DEPLOY_USER/web-performance-project1-initial
-        mkdir -p $REMOTE_BASE_PATH/$DEPLOY_USER/deploy/$TIMESTAMP
-        
-        # Set proper permissions
-        chmod 755 $REMOTE_BASE_PATH/$DEPLOY_USER
-        chmod 755 $REMOTE_BASE_PATH/$DEPLOY_USER/web-performance-project1-initial
-        chmod 755 $REMOTE_BASE_PATH/$DEPLOY_USER/deploy
-        chmod 755 $REMOTE_BASE_PATH/$DEPLOY_USER/deploy/$TIMESTAMP
-        
-        echo 'Remote directories created successfully'
-    "
+    # Split into smaller SSH commands to avoid connection issues
+    log "Creating base directories..."
+    ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no -o ConnectTimeout=30 "$SSH_USER@$DEPLOY_SERVER" \
+        "mkdir -p $REMOTE_BASE_PATH/$DEPLOY_USER" || {
+        error "Failed to create base directory"
+        return 1
+    }
     
-    success "Remote directories created"
+    log "Creating project directories..."
+    ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no -o ConnectTimeout=30 "$SSH_USER@$DEPLOY_SERVER" \
+        "mkdir -p $REMOTE_BASE_PATH/$DEPLOY_USER/web-performance-project1-initial" || {
+        error "Failed to create project directory"
+        return 1
+    }
+    
+    log "Creating deployment directory..."
+    ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no -o ConnectTimeout=30 "$SSH_USER@$DEPLOY_SERVER" \
+        "mkdir -p $REMOTE_BASE_PATH/$DEPLOY_USER/deploy/$TIMESTAMP" || {
+        error "Failed to create deployment directory"
+        return 1
+    }
+    
+    log "Setting permissions..."
+    ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no -o ConnectTimeout=30 "$SSH_USER@$DEPLOY_SERVER" \
+        "chmod 755 $REMOTE_BASE_PATH/$DEPLOY_USER $REMOTE_BASE_PATH/$DEPLOY_USER/web-performance-project1-initial $REMOTE_BASE_PATH/$DEPLOY_USER/deploy $REMOTE_BASE_PATH/$DEPLOY_USER/deploy/$TIMESTAMP" || {
+        warning "Failed to set some permissions, but continuing..."
+    }
+    
+    success "Remote directory structure created"
 }
 
 # Upload deployment files
