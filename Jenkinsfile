@@ -237,13 +237,13 @@ pipeline {
 
     post {
         success {
-            script {
+            script { ->
                 // sendSlackNotification(true)
             }
         }
 
         failure {
-            script {
+            script { ->
                 // sendSlackNotification(false)
             }
         }
