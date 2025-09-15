@@ -49,28 +49,22 @@ pipeline {
                 echo "🔍 Verifying build environment..."
 
                 sh '''
-                    echo "📋 Node.js and npm versions:"
-                    node --version
-                    npm --version
-
                     # Check Node.js version compatibility (must be >= 20.0.0 for Firebase CLI)
                     NODE_VERSION=$(node --version | cut -d'v' -f2)
                     NODE_MAJOR=$(echo $NODE_VERSION | cut -d'.' -f1)
 
                     if [ "$NODE_MAJOR" -lt 20 ]; then
-                        echo "❌ ERROR: Node.js version $NODE_VERSION is not compatible with Firebase CLI"
-                        echo "❌ Required: Node.js >= 20.0.0"
+                        echo "❌ ERROR: Node.js version $NODE_VERSION incompatible with Firebase CLI (required: >= 20.0.0)"
                         exit 1
-                    else
-                        echo "✅ Node.js version $NODE_VERSION is compatible with Firebase CLI"
                     fi
-                    # Check if firebase CLI is available (pre-installed in container)
-                    echo "🔍 Checking Firebase CLI availability..."
-                    if command -v firebase >/dev/null 2>&1; then
-                        echo "✅ Firebase CLI already available: $(firebase --version)"
-                    else
-                        echo "❌ Firebase CLI not found - should be pre-installed in container"
+
+                    # Check Firebase CLI availability
+                    if ! command -v firebase >/dev/null 2>&1; then
+                        echo "❌ Firebase CLI not found"
+                        exit 1
                     fi
+
+                    echo "✅ Environment check passed"
                 '''
             }
         }
@@ -81,16 +75,11 @@ pipeline {
                 checkout scm
 
                 sh '''
-                    echo "📋 Verifying workspace structure:"
-                    pwd
-                    ls -la
-
-                    echo "✅ Critical files check:"
-                    [ -f "package.json" ] && echo "✅ package.json found" || { echo "❌ package.json MISSING!"; exit 1; }
-                    [ -f "index.html" ] && echo "✅ index.html found" || { echo "❌ index.html MISSING!"; exit 1; }
-                    [ -d "js/" ] && echo "✅ js/ directory found" || { echo "❌ js/ directory MISSING!"; exit 1; }
-                    [ -d "css/" ] && echo "✅ css/ directory found" || { echo "❌ css/ directory MISSING!"; exit 1; }
-                    [ -d "images/" ] && echo "✅ images/ directory found" || { echo "❌ images/ directory MISSING!"; exit 1; }
+                    # Verify critical files exist
+                    for file in package.json index.html js css images; do
+                        [ -e "$file" ] || { echo "❌ Critical file/directory missing: $file"; exit 1; }
+                    done
+                    echo "✅ Critical files verified"
                 '''
             }
         }
@@ -100,20 +89,14 @@ pipeline {
                 echo "📦 Building project..."
 
                 sh '''
-                    echo "🧹 Cleaning previous installations..."
+                    # Clean and install dependencies
                     rm -rf node_modules package-lock.json
+                    npm install --silent
 
-                    echo "📦 Installing dependencies..."
-                    npm install
+                    # Verify Firebase CLI
+                    firebase --version >/dev/null 2>&1 || { echo "❌ Firebase CLI verification failed"; exit 1; }
 
-                    echo "🔍 Verifying Firebase CLI installation..."
-                    firebase --version
-
-                    # Verify Node.js compatibility with Firebase CLI
-                    echo "✅ Node.js version: $(node --version)"
-                    echo "✅ Firebase CLI version: $(firebase --version)"
-
-                    echo "✅ Build completed!"
+                    echo "✅ Build completed"
                 '''
             }
         }
@@ -171,60 +154,39 @@ pipeline {
 
                     // Prepare deployment files
                     sh '''
-                        echo "📦 Preparing deployment package..."
-
                         # Create deployment staging area
                         rm -rf deploy-staging
                         mkdir -p deploy-staging
 
-                        # Copy only necessary files for deployment
-                        echo "📋 Copying deployment files:"
-                        cp index.html deploy-staging/
-                        cp 404.html deploy-staging/
-                        cp -r css deploy-staging/
-                        cp -r js deploy-staging/
-                        cp -r images deploy-staging/
-
-                        # Optional: copy firebase config if exists
+                        # Copy deployment files
+                        cp index.html 404.html deploy-staging/
+                        cp -r css js images deploy-staging/
                         [ -f firebase.json ] && cp firebase.json deploy-staging/
                         [ -f .firebaserc ] && cp .firebaserc deploy-staging/
 
-                        echo "✅ Deployment package prepared:"
-                        ls -la deploy-staging/
+                        echo "✅ Deployment package prepared"
                     '''
 
                     // Deploy to local using deploy-local.sh script
                     if (deployTarget == 'local' || deployTarget == 'both') {
-                        echo "📱 Deploying to Local (jenkins-ws/template2)..."
+                        echo "📱 Deploying to Local..."
 
                         sh '''
-                            echo "🔧 Running local deployment script..."
-
-                            # Make sure the script is executable
                             chmod +x deploy-local.sh
-
-                            echo "🚀 Executing deploy-local.sh..."
                             ./deploy-local.sh
-
-                            echo "✅ Local deployment completed!"
+                            echo "✅ Local deployment completed"
                         '''
                     }
 
                     // Deploy to Firebase Hosting
                     if (deployTarget == 'firebase' || deployTarget == 'both') {
-                        echo "🔥 Deploying to Firebase Hosting..."
+                        echo "🔥 Deploying to Firebase..."
 
                         withCredentials([string(credentialsId: 'firebase-service-account-key', variable: 'FIREBASE_SERVICE_ACCOUNT_KEY')]) {
                             sh '''
-                                echo "🔧 Running Firebase deployment script..."
-
-                                # Make sure the script is executable
                                 chmod +x deploy-firebase.sh
-
-                                echo "🚀 Executing deploy-firebase.sh..."
                                 ./deploy-firebase.sh
-
-                                echo "✅ Firebase deployment completed!"
+                                echo "✅ Firebase deployment completed"
                             '''
                         }
                     }
@@ -234,47 +196,25 @@ pipeline {
                         echo "🌐 Deploying to Remote Server..."
 
                         sh '''
-                            echo "🔧 Remote server deployment..."
-                            echo "Target server: $DEPLOY_USER@$DEPLOY_SERVER"
-                            echo "Personal folder: $PERSONAL_FOLDER"
-                            echo "Timestamp: $TIMESTAMP"
-
                             # Create remote directory structure
                             ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$DEPLOY_USER@$DEPLOY_SERVER" "
-                                echo 'Creating directory structure...'
                                 mkdir -p $REMOTE_BASE_PATH/$PERSONAL_FOLDER/web-performance-project1-initial
                                 mkdir -p $REMOTE_BASE_PATH/$PERSONAL_FOLDER/deploy/$TIMESTAMP
+                            " >/dev/null 2>&1
 
-                                echo 'Directory structure created:'
-                                ls -la $REMOTE_BASE_PATH/$PERSONAL_FOLDER/
-                            "
+                            # Upload deployment files
+                            scp -i "$SSH_KEY" -o StrictHostKeyChecking=no -r deploy-staging/* "$DEPLOY_USER@$DEPLOY_SERVER:$REMOTE_BASE_PATH/$PERSONAL_FOLDER/deploy/$TIMESTAMP/" >/dev/null 2>&1
+                            scp -i "$SSH_KEY" -o StrictHostKeyChecking=no -r deploy-staging/* "$DEPLOY_USER@$DEPLOY_SERVER:$REMOTE_BASE_PATH/$PERSONAL_FOLDER/web-performance-project1-initial/" >/dev/null 2>&1
 
-                            # Upload deployment files to timestamped directory
-                            echo "📤 Uploading files to remote server..."
-                            scp -i "$SSH_KEY" -o StrictHostKeyChecking=no -r deploy-staging/* "$DEPLOY_USER@$DEPLOY_SERVER:$REMOTE_BASE_PATH/$PERSONAL_FOLDER/deploy/$TIMESTAMP/"
-
-                            # Also copy to main project directory
-                            scp -i "$SSH_KEY" -o StrictHostKeyChecking=no -r deploy-staging/* "$DEPLOY_USER@$DEPLOY_SERVER:$REMOTE_BASE_PATH/$PERSONAL_FOLDER/web-performance-project1-initial/"
-
-                            # Create/update symlink to current deployment
+                            # Update symlink and cleanup
                             ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$DEPLOY_USER@$DEPLOY_SERVER" "
                                 cd $REMOTE_BASE_PATH/$PERSONAL_FOLDER/deploy
-
-                                echo 'Updating current symlink...'
                                 rm -f current
                                 ln -sf $TIMESTAMP current
-
-                                echo 'Current deployment:'
-                                ls -la current/
-
-                                echo 'Cleaning up old deployments (keeping last 5)...'
                                 ls -1t | grep -E '^[0-9]{8}$' | tail -n +6 | xargs -r rm -rf
+                            " >/dev/null 2>&1
 
-                                echo 'Remaining deployments:'
-                                ls -la | grep -E '^d.*[0-9]{8}$' || echo 'No dated directories found'
-                            "
-
-                            echo "✅ Remote server deployment completed!"
+                            echo "✅ Remote server deployment completed"
                         '''
                     }
                 }
@@ -285,38 +225,22 @@ pipeline {
     post {
         success {
             script {
-                // Determine actual deployment target (same logic as in Deploy stage)
                 def actualDeployTarget = params.DEPLOY_ENVIRONMENT
                 if (env.BUILD_CAUSE == 'SCMTRIGGER' || params.AUTO_DEPLOY) {
                     actualDeployTarget = 'both'
                 }
-                
-                def message = "✅ Build #${env.BUILD_NUMBER} completed successfully! 🚀\\n"
-                message += "📋 Project: web-performance-project1-initial\\n"
-                message += "🎯 Environment: ${actualDeployTarget}\\n"
-                message += "👤 Personal folder: ${env.PERSONAL_FOLDER}\\n"
-                message += "📅 Deployment: ${env.TIMESTAMP}\\n"
-                
-                if (env.BUILD_CAUSE == 'SCMTRIGGER') {
-                    message += "🤖 Trigger: Automatic (SCM change detected)\\n"
-                } else {
-                    message += "👤 Trigger: Manual\\n"
-                }
-                message += "\\n"
 
-                if (actualDeployTarget == 'local' || actualDeployTarget == 'both') {
-                    message += "📱 Local: jenkins-ws/template2/current/\\n"
-                    message += "🔗 Access: file://jenkins-ws/template2/current/index.html\\n"
-                }
+                def message = "✅ Build #${env.BUILD_NUMBER} completed successfully!\\n"
+                message += "🎯 Environment: ${actualDeployTarget} | 📅 ${env.TIMESTAMP}\\n"
 
                 if (actualDeployTarget == 'firebase' || actualDeployTarget == 'both') {
                     message += "🔥 Firebase: https://lanlh-workshop2.web.app/\\n"
-                    message += "🔗 Alternative: https://lanlh-workshop2.firebaseapp.com/\\n"
                 }
-
                 if (actualDeployTarget == 'remote' || actualDeployTarget == 'both') {
                     message += "🌐 Remote: http://${env.DEPLOY_SERVER}/jenkins/${env.PERSONAL_FOLDER}/deploy/current/\\n"
-                    message += "🔗 Project: http://${env.DEPLOY_SERVER}/jenkins/${env.PERSONAL_FOLDER}/web-performance-project1-initial/\\n"
+                }
+                if (actualDeployTarget == 'local' || actualDeployTarget == 'both') {
+                    message += "📱 Local: jenkins-ws/template2/current/\\n"
                 }
 
                 echo message
@@ -324,23 +248,15 @@ pipeline {
         }
 
         failure {
-            echo "❌ Build #${env.BUILD_NUMBER} failed! 😞"
-            echo "📋 Check the logs above for details"
-            echo "🔗 Build URL: ${env.BUILD_URL}"
+            echo "❌ Build #${env.BUILD_NUMBER} failed! Check logs for details."
         }
 
         always {
             // Clean up
-            sh '''
-                echo "🧹 Cleaning up workspace..."
-                rm -rf deploy-staging
-                # Keep node_modules for potential next build speed
-            '''
+            sh 'rm -rf deploy-staging'
 
             // Archive artifacts
             archiveArtifacts artifacts: 'index.html,404.html,css/**,js/**,images/**', allowEmptyArchive: true
-
-            echo "🏁 Pipeline completed"
         }
     }
 }
