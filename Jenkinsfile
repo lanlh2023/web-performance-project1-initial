@@ -280,14 +280,23 @@ def sendSlackNotification(boolean isSuccess) {
         def payload = groovy.json.JsonOutput.toJson([text: message, username: "Jenkins", icon_emoji: ":jenkins:"])
         writeFile file: 'payload.json', text: payload
 
-        withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'WEBHOOK_URL')]) {
+        withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_TOKEN')]) {
             echo "🔗 Attempting to send Slack notification..."
             echo "📝 Payload size: ${payload.length()} characters"
             
-            // Validate webhook URL format
-            def urlCheck = sh(script: 'echo "$WEBHOOK_URL" | grep -E "^https://hooks.slack.com/services/" || echo "INVALID"', returnStdout: true).trim()
-            if (urlCheck == "INVALID") {
-                echo "❌ Invalid Slack webhook URL format"
+            // Build webhook URL from token if needed
+            def WEBHOOK_URL = ""
+            if (env.SLACK_TOKEN.startsWith("https://hooks.slack.com/")) {
+                WEBHOOK_URL = env.SLACK_TOKEN
+                echo "✅ Using full webhook URL"
+            } else {
+                // Assume it's just the token part and build full URL
+                // Format: https://hooks.slack.com/services/T00000000/B00000000/TOKEN
+                echo "🔧 Building webhook URL from token..."
+                echo "⚠️ Note: You should provide the full webhook URL in credentials for security"
+                // For now, skip sending if we don't have full URL
+                echo "❌ Please update credential 'slack-webhook-url' with full webhook URL"
+                echo "💡 Format: https://hooks.slack.com/services/T00000000/B00000000/YOUR_TOKEN"
                 return
             }
             
