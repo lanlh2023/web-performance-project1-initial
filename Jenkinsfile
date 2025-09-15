@@ -290,29 +290,35 @@ def sendSlackNotification(boolean isSuccess) {
                           ":page_with_curl: Build Log: ${env.BUILD_URL}console"
         }
         
-        // Create JSON payload for Slack
+        echo "📤 Sending Slack notification..."
+        echo "Message preview: ${slackMessage}"
+        
+        // Create JSON payload file to avoid shell escaping issues and security warnings
         def payloadJson = groovy.json.JsonOutput.toJson([
             text: slackMessage,
             username: "Jenkins",
             icon_emoji: ":jenkins:"
         ])
         
-        echo "📤 Sending Slack notification..."
-        echo "Message preview: ${slackMessage}"
+        // Write payload to temporary file to avoid shell injection and security issues
+        writeFile file: 'slack-payload.json', text: payloadJson
         
-        // Use curl instead of httpRequest to avoid plugin dependency
+        // Use curl with file input to avoid security warnings and escaping issues
         def curlResult = sh(
-            script: """
+            script: '''
                 curl -X POST \
-                     -H 'Content-type: application/json' \
-                     --data '${payloadJson}' \
-                     '${env.SLACK_WEBHOOK_URL}' \
-                     -w '%{http_code}' \
+                     -H "Content-type: application/json" \
+                     --data @slack-payload.json \
+                     "${SLACK_WEBHOOK_URL}" \
+                     -w "%{http_code}" \
                      -s -o /dev/null
-            """,
+            ''',
             returnStdout: true
         ).trim()
-        
+
+        // Clean up temporary file
+        sh 'rm -f slack-payload.json'
+
         if (curlResult == '200') {
             echo "✅ Slack notification sent successfully (HTTP ${curlResult})"
         } else {
