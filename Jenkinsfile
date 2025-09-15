@@ -290,26 +290,34 @@ def sendSlackNotification(boolean isSuccess) {
                           ":page_with_curl: Build Log: ${env.BUILD_URL}console"
         }
         
-        // Create payload
-        def payload = [
+        // Create JSON payload for Slack
+        def payloadJson = groovy.json.JsonOutput.toJson([
             text: slackMessage,
             username: "Jenkins",
             icon_emoji: ":jenkins:"
-        ]
+        ])
         
         echo "📤 Sending Slack notification..."
         echo "Message preview: ${slackMessage}"
         
-        def response = httpRequest(
-            httpMode: 'POST',
-            contentType: 'APPLICATION_JSON',
-            requestBody: groovy.json.JsonOutput.toJson(payload),
-            url: env.SLACK_WEBHOOK_URL,
-            validResponseCodes: '200:299',
-            quiet: true
-        )
+        // Use curl instead of httpRequest to avoid plugin dependency
+        def curlResult = sh(
+            script: """
+                curl -X POST \
+                     -H 'Content-type: application/json' \
+                     --data '${payloadJson}' \
+                     '${env.SLACK_WEBHOOK_URL}' \
+                     -w '%{http_code}' \
+                     -s -o /dev/null
+            """,
+            returnStdout: true
+        ).trim()
         
-        echo "✅ Slack notification sent successfully (HTTP ${response.status})"
+        if (curlResult == '200') {
+            echo "✅ Slack notification sent successfully (HTTP ${curlResult})"
+        } else {
+            echo "⚠️ Slack notification may have failed (HTTP ${curlResult})"
+        }
         
     } catch (Exception e) {
         echo "⚠️ Slack notification failed: ${e.getMessage()}"
