@@ -106,36 +106,49 @@ prepare_build() {
     success "Build directory prepared"
 }
 
-# Verify Firebase configuration
-verify_firebase_config() {
-    log "Verifying Firebase configuration..."
+
+# Deploy to Firebase
+deploy_to_firebase() {
+    log "Deploying to Firebase Hosting..."
     
-    # Check if firebase.json exists
+    # Ensure we're using the correct authentication method
+    # Unset any FIREBASE_TOKEN to avoid deprecated auth warning
+    unset FIREBASE_TOKEN 2>/dev/null || true
+    
+    # Verify Firebase configuration
+    log "Verifying Firebase configuration..."
     if [[ ! -f "firebase.json" ]]; then
         error "firebase.json not found"
         error "Run 'firebase init' to initialize Firebase configuration"
         exit 1
     fi
     
-    # Verify project configuration
-    local configured_project=$(firebase use --project "$FIREBASE_PROJECT_ID" 2>/dev/null || echo "")
-    if [[ -z "$configured_project" ]]; then
-        log "Setting Firebase project to $FIREBASE_PROJECT_ID..."
-        firebase use --add "$FIREBASE_PROJECT_ID"
+    # Verify authentication
+    log "Verifying Firebase authentication..."
+    log "GOOGLE_APPLICATION_CREDENTIALS: $GOOGLE_APPLICATION_CREDENTIALS"
+    
+    # Check if credentials file exists and is readable
+    if [[ ! -f "$GOOGLE_APPLICATION_CREDENTIALS" ]]; then
+        error "Credentials file not found: $GOOGLE_APPLICATION_CREDENTIALS"
+        exit 1
     fi
     
-    success "Firebase configuration verified"
-}
-
-# Deploy to Firebase
-deploy_to_firebase() {
-    log "Deploying to Firebase Hosting..."
+    # Test Firebase authentication with projects list
+    if ! firebase projects:list >/dev/null 2>&1; then
+        error "Firebase authentication failed"
+        error "Credentials file: $GOOGLE_APPLICATION_CREDENTIALS"
+        error "Project ID: $FIREBASE_PROJECT_ID"
+        # Show first few lines of credentials for debugging (without private key)
+        log "Credentials file content (first 3 lines):"
+        head -3 "$GOOGLE_APPLICATION_CREDENTIALS" || true
+        exit 1
+    fi
     
-    # Set the build directory in firebase.json temporarily if needed
-    # This assumes your firebase.json has hosting.public set correctly
+    log "Firebase authentication successful"
     
     # Deploy to Firebase
-    firebase deploy --only hosting --project="$FIREBASE_PROJECT_ID" --non-interactive
+    log "Starting Firebase deployment..."
+    NODE_OPTIONS="--max-old-space-size=4096" firebase deploy --only hosting --project="$FIREBASE_PROJECT_ID" --non-interactive
     
     success "Deployment to Firebase completed"
 }
@@ -229,7 +242,6 @@ main() {
     check_prerequisites
     setup_credentials
     prepare_build
-    verify_firebase_config
     deploy_to_firebase
     get_deployment_url
     
