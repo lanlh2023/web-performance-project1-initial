@@ -18,7 +18,12 @@ pipeline {
         string(
             name: 'YOUR_NAME',
             defaultValue: 'lanlh',
-            description: 'Your name for creating personal deployment folder (e.g., lanlh2)'
+            description: 'Your name for creating personal deployment folder (e.g., lanlh)'
+        )
+        string(
+            name: 'KEEP_DEPLOYMENTS',
+            defaultValue: '5',
+            description: 'Number of deployment folders to keep (older ones will be deleted)'
         )
     }
 
@@ -37,7 +42,8 @@ pipeline {
         // Deployment paths
         REMOTE_BASE_PATH = "/usr/share/nginx/html/jenkins"
         DEPLOY_USER = "${params.YOUR_NAME}"      // Directory name based on YOUR_NAME parameter
-        TIMESTAMP = sh(script: 'date +%Y%m%d', returnStdout: true).trim()
+        TIMESTAMP = sh(script: 'date +%Y%m%d%H%M%S', returnStdout: true).trim()
+        KEEP_DEPLOYMENTS = "${params.KEEP_DEPLOYMENTS}"  // Number of deployments to keep
     }
 
     stages {

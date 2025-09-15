@@ -16,6 +16,7 @@ DEPLOY_USER="${DEPLOY_USER:-lanlee}"
 REMOTE_BASE_PATH="${REMOTE_BASE_PATH:-/usr/share/nginx/html/jenkins}"
 TIMESTAMP="${TIMESTAMP}"
 BUILD_DIR="${BUILD_DIR:-deploy-staging}"
+KEEP_DEPLOYMENTS="${KEEP_DEPLOYMENTS:-5}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -144,14 +145,14 @@ update_symlinks_and_cleanup() {
             echo 'Warning: Current symlink may not be working properly'
         fi
         
-        # Cleanup old deployments (keep last 5)
-        echo 'Cleaning up old deployments (keeping last 5)...'
+        # Cleanup old deployments (keep last N)
+        echo "Cleaning up old deployments (keeping last $KEEP_DEPLOYMENTS)..."
         cd deploy
-        ls -1t | grep -E '^[0-9]{8}$' | tail -n +6 | xargs -r rm -rf
+        ls -1t | grep -E '^[0-9]{14}$' | tail -n +$(($KEEP_DEPLOYMENTS + 1)) | xargs -r rm -rf
         
         # Show remaining deployments
         echo 'Remaining deployments:'
-        ls -la | grep -E '^d.*[0-9]{8}$' || echo 'No dated directories found'
+        ls -la | grep -E '^d.*[0-9]{14}$' || echo 'No dated directories found'
     "
     
     success "Symlinks updated and cleanup completed"
@@ -192,14 +193,16 @@ show_usage() {
     echo "  DEPLOY_USER          Directory name for deployment (default: lanlee)"
     echo "  DEPLOY_USER          Directory name for deployment (e.g., lanlh)"
     echo "  REMOTE_BASE_PATH     Base deployment path (default: /usr/share/nginx/html/jenkins)"
-    echo "  TIMESTAMP            Deployment timestamp (YYYYMMDD format)"
+    echo "  TIMESTAMP            Deployment timestamp (YYYYMMDDHHMMSS format)"
+    echo "  KEEP_DEPLOYMENTS     Number of deployments to keep (default: 5)"
     echo "  BUILD_DIR            Build directory (default: deploy-staging)"
     echo ""
     echo "Examples:"
     echo "  # Set environment variables and run"
     echo "  export SSH_KEY=/path/to/private/key"
     echo "  export DEPLOY_USER=lanlh"
-    echo "  export TIMESTAMP=20240915"
+    echo "  export TIMESTAMP=20240915143022"
+    echo "  export KEEP_DEPLOYMENTS=10"
     echo "  $0"
 }
 
