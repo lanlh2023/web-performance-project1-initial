@@ -64,12 +64,12 @@ pipeline {
                     else
                         echo "✅ Node.js version $NODE_VERSION is compatible with Firebase CLI"
                     fi
-                    # Check if firebase CLI is available (will be installed during npm install)
+                    # Check if firebase CLI is available (pre-installed in container)
                     echo "🔍 Checking Firebase CLI availability..."
                     if command -v firebase >/dev/null 2>&1; then
                         echo "✅ Firebase CLI already available: $(firebase --version)"
                     else
-                        echo "ℹ️ Firebase CLI will be installed during build phase"
+                        echo "❌ Firebase CLI not found - should be pre-installed in container"
                     fi
                 '''
             }
@@ -105,10 +105,6 @@ pipeline {
 
                     echo "📦 Installing dependencies..."
                     npm install
-
-                    echo "🔥 Installing/Updating Firebase CLI..."
-                    # Install Firebase CLI globally to ensure latest version
-                    npm install -g firebase-tools
 
                     echo "🔍 Verifying Firebase CLI installation..."
                     firebase --version
