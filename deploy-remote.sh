@@ -7,7 +7,7 @@ set -e  # Exit on any error
 
 # Configuration from Jenkins environment variables
 SSH_USER="${SSH_USER:-newbie}"
-DEPLOY_SERVER="${DEPLOY_SERVER:-10.1.1.195}"
+DEPLOY_SERVER="${DEPLOY_SERVER:-118.69.34.46}"
 SSH_PORT="${SSH_PORT:-3334}"
 WEB_SERVER="${WEB_SERVER:-10.1.1.195}"
 SSH_KEY="${SSH_KEY}"
@@ -65,11 +65,16 @@ validate_environment() {
 # Test SSH connection
 test_ssh_connection() {
     log "Testing SSH connection to $SSH_USER@$DEPLOY_SERVER:$SSH_PORT..."
+    log "Using SSH key: $SSH_KEY"
     
-    if ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no -o ConnectTimeout=10 "$SSH_USER@$DEPLOY_SERVER" "echo 'SSH connection successful'" >/dev/null 2>&1; then
+    # Expand tilde in SSH_KEY path if needed
+    SSH_KEY_EXPANDED="${SSH_KEY/#\~/$HOME}"
+    
+    if ssh -i "$SSH_KEY_EXPANDED" -p "$SSH_PORT" -o StrictHostKeyChecking=no -o ConnectTimeout=10 "$SSH_USER@$DEPLOY_SERVER" "echo 'SSH connection successful'" >/dev/null 2>&1; then
         success "SSH connection test passed"
     else
-        error "SSH connection failed"
+        error "SSH connection failed to $SSH_USER@$DEPLOY_SERVER:$SSH_PORT"
+        error "SSH key: $SSH_KEY_EXPANDED"
         error "Check SSH credentials and server accessibility"
         exit 1
     fi
@@ -79,7 +84,7 @@ test_ssh_connection() {
 create_remote_directories() {
     log "Creating remote directory structure..."
     
-    ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$DEPLOY_SERVER" "
+    ssh -i "$SSH_KEY_EXPANDED" -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$DEPLOY_SERVER" "
         # Create base directories
         mkdir -p $REMOTE_BASE_PATH/$DEPLOY_USER/web-performance-project1-initial
         mkdir -p $REMOTE_BASE_PATH/$DEPLOY_USER/deploy/$TIMESTAMP
@@ -109,7 +114,7 @@ upload_files() {
     
     # Upload files to timestamped directory
     log "Uploading to timestamped directory: $TIMESTAMP"
-    if scp -i "$SSH_KEY" -P "$SSH_PORT" -o StrictHostKeyChecking=no -r deploy-staging/* "$SSH_USER@$DEPLOY_SERVER:$REMOTE_BASE_PATH/$DEPLOY_USER/deploy/$TIMESTAMP/"; then
+    if scp -i "$SSH_KEY_EXPANDED" -P "$SSH_PORT" -o StrictHostKeyChecking=no -r deploy-staging/* "$SSH_USER@$DEPLOY_SERVER:$REMOTE_BASE_PATH/$DEPLOY_USER/deploy/$TIMESTAMP/"; then
         success "Files uploaded to timestamped directory"
     else
         error "Failed to upload files to timestamped directory"
@@ -118,7 +123,7 @@ upload_files() {
     
     # Also copy to main project directory for direct access
     log "Uploading to main project directory..."
-    if scp -i "$SSH_KEY" -P "$SSH_PORT" -o StrictHostKeyChecking=no -r deploy-staging/* "$SSH_USER@$DEPLOY_SERVER:$REMOTE_BASE_PATH/$DEPLOY_USER/web-performance-project1-initial/"; then
+    if scp -i "$SSH_KEY_EXPANDED" -P "$SSH_PORT" -o StrictHostKeyChecking=no -r deploy-staging/* "$SSH_USER@$DEPLOY_SERVER:$REMOTE_BASE_PATH/$DEPLOY_USER/web-performance-project1-initial/"; then
         success "Files uploaded to main project directory"
     else
         warning "Failed to upload to main project directory (non-critical)"
@@ -129,7 +134,7 @@ upload_files() {
 update_symlink() {
     log "Updating current symlink..."
     
-    ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$DEPLOY_SERVER" "
+    ssh -i "$SSH_KEY_EXPANDED" -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$DEPLOY_SERVER" "
         cd $REMOTE_BASE_PATH/$DEPLOY_USER/deploy
         
         # Remove existing symlink if it exists
@@ -160,7 +165,7 @@ update_symlink() {
 cleanup_old_deployments() {
     log "Cleaning up old deployments (keeping last $KEEP_DEPLOYMENTS)..."
     
-    ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$DEPLOY_SERVER" "
+    ssh -i "$SSH_KEY_EXPANDED" -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$DEPLOY_SERVER" "
         cd $REMOTE_BASE_PATH/$DEPLOY_USER/deploy
         
         # Count current deployments
@@ -193,7 +198,7 @@ verify_deployment() {
     log "Verifying deployment..."
     
     # Check if files exist in current deployment
-    ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$DEPLOY_SERVER" "
+    ssh -i "$SSH_KEY_EXPANDED" -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$DEPLOY_SERVER" "
         cd $REMOTE_BASE_PATH/$DEPLOY_USER/deploy/current
         
         # Check essential files

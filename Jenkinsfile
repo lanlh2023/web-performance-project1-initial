@@ -31,7 +31,7 @@ pipeline {
 
         // Remote server credentials
         SSH_USER = 'newbie'              // SSH user for connection
-        DEPLOY_SERVER = '10.1.1.195'   // SSH server
+        DEPLOY_SERVER = '118.69.34.46'   // SSH server
         SSH_PORT = '3334'                // SSH port
         WEB_SERVER = '10.1.1.195'        // Web server for HTTP access
         SSH_KEY = credentials('ssh-private-key')  // Should be newbie_id_rsa
