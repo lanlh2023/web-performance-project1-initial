@@ -7,7 +7,7 @@ set -e  # Exit on any error
 
 # Configuration from Jenkins environment variables
 SSH_USER="${SSH_USER:-newbie}"
-DEPLOY_SERVER="${DEPLOY_SERVER:-118.69.34.46}"
+DEPLOY_SERVER="${DEPLOY_SERVER:-10.1.1.195}"
 SSH_PORT="${SSH_PORT:-3334}"
 WEB_SERVER="${WEB_SERVER:-10.1.1.195}"
 SSH_KEY="${SSH_KEY}"
