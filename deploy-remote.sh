@@ -9,6 +9,7 @@ set -e  # Exit on any error
 SSH_USER="${SSH_USER:-newbie}"
 DEPLOY_SERVER="${DEPLOY_SERVER:-118.69.34.46}"
 SSH_PORT="${SSH_PORT:-3334}"
+WEB_SERVER="${WEB_SERVER:-10.1.1.195}"
 SSH_KEY="${SSH_KEY}"
 DEPLOY_USER="${DEPLOY_USER:-lanlee}"
 # PERSONAL_FOLDER removed - using DEPLOY_USER directly
@@ -160,8 +161,8 @@ update_symlinks_and_cleanup() {
 get_deployment_info() {
     log "Getting deployment information..."
     
-    local deployment_url="http://$DEPLOY_SERVER:$SSH_PORT/jenkins/$DEPLOY_USER/current/"
-    local project_url="http://$DEPLOY_SERVER:$SSH_PORT/jenkins/$DEPLOY_USER/web-performance-project1-initial/"
+    local deployment_url="http://$WEB_SERVER/jenkins/$DEPLOY_USER/current/"
+    local project_url="http://$WEB_SERVER/jenkins/$DEPLOY_USER/web-performance-project1-initial/"
     
     echo ""
     echo "🚀 Remote deployment completed successfully!"
@@ -184,8 +185,9 @@ show_usage() {
     echo ""
     echo "Environment Variables Required:"
     echo "  SSH_USER              SSH username (default: newbie)"
-    echo "  DEPLOY_SERVER         Remote server IP/hostname (default: 118.69.34.46)"
+    echo "  DEPLOY_SERVER         SSH server IP/hostname (default: 118.69.34.46)"
     echo "  SSH_PORT             SSH port (default: 3334)"
+    echo "  WEB_SERVER           Web server IP/hostname (default: 10.1.1.195)"
     echo "  SSH_KEY              Path to SSH private key file"
     echo "  DEPLOY_USER          Directory name for deployment (default: lanlee)"
     echo "  DEPLOY_USER          Directory name for deployment (e.g., lanlh)"

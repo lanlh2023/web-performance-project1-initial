@@ -29,8 +29,9 @@ pipeline {
 
         // Remote server credentials
         SSH_USER = 'newbie'              // SSH user for connection
-        DEPLOY_SERVER = '118.69.34.46'
-        SSH_PORT = '3334'
+        DEPLOY_SERVER = '118.69.34.46'   // SSH server
+        SSH_PORT = '3334'                // SSH port
+        WEB_SERVER = '10.1.1.195'        // Web server for HTTP access
         SSH_KEY = credentials('ssh-private-key')  // Should be newbie_id_rsa
 
         // Deployment paths
@@ -214,7 +215,7 @@ pipeline {
                     message += "🔥 Firebase: https://lanlh-workshop2.web.app/\\n"
                 }
                 if (actualDeployTarget == 'remote' || actualDeployTarget == 'both') {
-                    message += "🌐 Remote: http://${env.DEPLOY_SERVER}:${env.SSH_PORT}/jenkins/${env.DEPLOY_USER}/current/\\n"
+                    message += "🌐 Remote: http://${env.WEB_SERVER}/jenkins/${env.DEPLOY_USER}/current/\\n"
                 }
                 if (actualDeployTarget == 'local' || actualDeployTarget == 'both') {
                     message += "📱 Local: jenkins-ws/template2/current/\\n"
