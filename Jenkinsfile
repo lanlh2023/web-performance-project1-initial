@@ -44,6 +44,9 @@ pipeline {
         DEPLOY_USER = "${params.YOUR_NAME}"      // Directory name based on YOUR_NAME parameter
         TIMESTAMP = sh(script: 'date +%Y%m%d%H%M%S', returnStdout: true).trim()
         KEEP_DEPLOYMENTS = "${params.KEEP_DEPLOYMENTS}"  // Number of deployments to keep
+
+        // Slack notification
+        SLACK_WEBHOOK_URL = credentials('slack-webhook-urlslack2')  // Slack webhook URL credential
     }
 
     stages {
@@ -212,27 +215,14 @@ pipeline {
     post {
         success {
             script {
-                def actualDeployTarget = params.DEPLOY_ENVIRONMENT
-
-                def message = "✅ Build #${env.BUILD_NUMBER} completed successfully!\\n"
-                message += "🎯 Environment: ${actualDeployTarget} | 📅 ${env.TIMESTAMP}\\n"
-
-                if (actualDeployTarget == 'firebase' || actualDeployTarget == 'both') {
-                    message += "🔥 Firebase: https://lanlh-workshop2.web.app/\\n"
-                }
-                if (actualDeployTarget == 'remote' || actualDeployTarget == 'both') {
-                    message += "🌐 Remote: http://${env.WEB_SERVER}/jenkins/${env.DEPLOY_USER}/current/\\n"
-                }
-                if (actualDeployTarget == 'local' || actualDeployTarget == 'both') {
-                    message += "📱 Local: jenkins-ws/template2/current/\\n"
-                }
-
-                echo message
+                sendSlackNotification(true)
             }
         }
 
         failure {
-            echo "❌ Build #${env.BUILD_NUMBER} failed! Check logs for details."
+            script {
+                sendSlackNotification(false)
+            }
         }
 
         always {
@@ -242,5 +232,51 @@ pipeline {
             // Archive artifacts
             archiveArtifacts artifacts: 'index.html,404.html,css/**,js/**,images/**', allowEmptyArchive: true
         }
+    }
+}
+
+// Function to send Slack notifications
+def sendSlackNotification(boolean isSuccess) {
+    def gitAuthor = sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
+    def gitCommit = sh(script: 'git log -1 --pretty=format:"%s"', returnStdout: true).trim()
+    def gitTimestamp = sh(script: 'date -u "+%Y-%m-%d %H:%M:%S UTC"', returnStdout: true).trim()
+    
+    def slackMessage = ""
+    
+    if (isSuccess) {
+        def links = []
+        def deployTarget = params.DEPLOY_ENVIRONMENT
+        
+        if (deployTarget == 'firebase' || deployTarget == 'both') {
+            links.add("• Firebase: https://${env.FIREBASE_PROJECT}.web.app")
+        }
+        if (deployTarget == 'remote' || deployTarget == 'both') {
+            links.add("• Remote: http://${env.WEB_SERVER}/jenkins/${env.DEPLOY_USER}/current/")
+        }
+        
+        slackMessage = ":white_check_mark: *Deployment Successful!*\\n" +
+                      "*Author:* ${gitAuthor}\\n" +
+                      "*Commit:* ${gitCommit}\\n" +
+                      "*Time:* ${gitTimestamp}\\n" +
+                      "*Links:*\\n" +
+                      links.join('\\n')
+    } else {
+        slackMessage = ":x: *Deployment Failed!*\\n" +
+                      "*Author:* ${gitAuthor}\\n" +
+                      "*Commit:* ${gitCommit}\\n" +
+                      "*Time:* ${gitTimestamp}"
+    }
+    
+    try {
+        httpRequest(
+            httpMode: 'POST',
+            contentType: 'APPLICATION_JSON',
+            requestBody: groovy.json.JsonOutput.toJson([text: slackMessage]),
+            url: env.SLACK_WEBHOOK_URL,
+            validResponseCodes: '200'
+        )
+        echo "✅ Slack notification sent"
+    } catch (Exception e) {
+        echo "⚠️ Slack notification failed: ${e.getMessage()}"
     }
 }
