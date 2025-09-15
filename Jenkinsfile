@@ -1,14 +1,6 @@
 pipeline {
     agent any
 
-    triggers {
-        // Trigger immediately when changes are pushed to main branch
-        // Uses GitHub webhook for instant triggering
-        githubPush()
-
-        // Fallback: Poll SCM every minute as backup
-        pollSCM('* * * * *')
-    }
 
     parameters {
         choice(
