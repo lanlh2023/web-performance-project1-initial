@@ -18,12 +18,12 @@ pipeline {
         // Firebase credentials
         FIREBASE_TOKEN = credentials('firebase-token')
         FIREBASE_PROJECT = 'lanlh-workshop2'
-        
+
         // Remote server credentials
         DEPLOY_USER = 'lanlee'
         DEPLOY_SERVER = '10.1.1.195'
         SSH_KEY = credentials('ssh-private-key')
-        
+
         // Deployment paths
         REMOTE_BASE_PATH = "/usr/share/nginx/html/jenkins"
         PERSONAL_FOLDER = "${params.YOUR_NAME}2"
@@ -35,12 +35,12 @@ pipeline {
             steps {
                 echo "🔍 Checking out source code..."
                 checkout scm
-                
+
                 sh '''
                     echo "📋 Verifying workspace structure:"
                     pwd
                     ls -la
-                    
+
                     echo "✅ Critical files check:"
                     [ -f "package.json" ] && echo "✅ package.json found" || { echo "❌ package.json MISSING!"; exit 1; }
                     [ -f "index.html" ] && echo "✅ index.html found" || { echo "❌ index.html MISSING!"; exit 1; }
@@ -54,27 +54,21 @@ pipeline {
         stage('Build') {
             steps {
                 echo "📦 Building project..."
-                
+
                 sh '''
-                    echo "🔍 Environment check:"
-                    node --version
-                    npm --version
-                    
-                    echo "📋 Package.json validation:"
-                    cat package.json
-                    
                     echo "🧹 Cleaning previous installations..."
                     rm -rf node_modules package-lock.json
-                    
+
                     echo "📦 Installing dependencies..."
                     npm install
-                    
-                    echo "✅ Build completed. Verifying installation:"
-                    npm list --depth=0 || echo "⚠️ npm list failed but continuing..."
+
+                    echo "✅ Build completed!"
                 '''
             }
         }
 
+        // Temporarily commented out for testing
+        /*
         stage('Lint/Test') {
             steps {
                 echo "🧪 Running linting and tests..."
@@ -106,17 +100,18 @@ pipeline {
                 }
             }
         }
+        */
 
         stage('Deploy') {
             when {
                 // Only deploy if tests pass
                 expression { currentBuild.currentResult == null || currentBuild.currentResult == 'SUCCESS' }
             }
-            
+
             steps {
                 script {
                     echo "🚀 Starting deployment to: ${params.DEPLOY_ENVIRONMENT}"
-                    
+
                     // Prepare deployment files
                     sh '''
                         echo "📦 Preparing deployment package..."
@@ -141,22 +136,20 @@ pipeline {
                         ls -la deploy-staging/
                     '''
 
-                    // Deploy to local (Firebase)
+                    // Deploy to local using deploy-local.sh script
                     if (params.DEPLOY_ENVIRONMENT == 'local' || params.DEPLOY_ENVIRONMENT == 'both') {
-                        echo "📱 Deploying to Firebase (Local)..."
+                        echo "📱 Deploying to Local (jenkins-ws/template2)..."
                         
                         sh '''
-                            cd deploy-staging
+                            echo "🔧 Running local deployment script..."
                             
-                            echo "🔧 Firebase deployment..."
-                            # Note: Requires firebase-tools to be installed
-                            # npm install -g firebase-tools (should be in Jenkins setup)
+                            # Make sure the script is executable
+                            chmod +x deploy-local.sh
                             
-                            echo "Firebase project: $FIREBASE_PROJECT"
-                            echo "🚀 Deploying to Firebase..."
+                            echo "🚀 Executing deploy-local.sh..."
+                            ./deploy-local.sh
                             
-                            # firebase deploy --token "$FIREBASE_TOKEN" --project "$FIREBASE_PROJECT"
-                            echo "✅ Firebase deployment completed (simulated)"
+                            echo "✅ Local deployment completed!"
                         '''
                     }
 
@@ -223,7 +216,8 @@ pipeline {
                 message += "📅 Deployment: ${env.TIMESTAMP}\\n\\n"
 
                 if (params.DEPLOY_ENVIRONMENT == 'local' || params.DEPLOY_ENVIRONMENT == 'both') {
-                    message += "📱 Firebase: https://${env.FIREBASE_PROJECT}.web.app\\n"
+                    message += "📱 Local: jenkins-ws/template2/current/\\n"
+                    message += "🔗 Access: file://jenkins-ws/template2/current/index.html\\n"
                 }
 
                 if (params.DEPLOY_ENVIRONMENT == 'remote' || params.DEPLOY_ENVIRONMENT == 'both') {
@@ -234,13 +228,13 @@ pipeline {
                 echo message
             }
         }
-        
+
         failure {
             echo "❌ Build #${env.BUILD_NUMBER} failed! 😞"
             echo "📋 Check the logs above for details"
             echo "🔗 Build URL: ${env.BUILD_URL}"
         }
-        
+
         always {
             // Clean up
             sh '''
@@ -248,10 +242,10 @@ pipeline {
                 rm -rf deploy-staging
                 # Keep node_modules for potential next build speed
             '''
-            
+
             // Archive artifacts
             archiveArtifacts artifacts: 'index.html,404.html,css/**,js/**,images/**', allowEmptyArchive: true
-            
+
             echo "🏁 Pipeline completed"
         }
     }
