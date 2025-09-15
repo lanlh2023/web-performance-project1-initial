@@ -11,7 +11,7 @@ DEPLOY_SERVER="${DEPLOY_SERVER:-118.69.34.46}"
 SSH_PORT="${SSH_PORT:-3334}"
 SSH_KEY="${SSH_KEY}"
 DEPLOY_USER="${DEPLOY_USER:-lanlee}"
-PERSONAL_FOLDER="${PERSONAL_FOLDER}"
+# PERSONAL_FOLDER removed - using DEPLOY_USER directly
 REMOTE_BASE_PATH="${REMOTE_BASE_PATH:-/usr/share/nginx/html/jenkins}"
 TIMESTAMP="${TIMESTAMP}"
 BUILD_DIR="${BUILD_DIR:-deploy-staging}"
@@ -50,8 +50,8 @@ check_prerequisites() {
         exit 1
     fi
     
-    if [[ -z "$PERSONAL_FOLDER" ]]; then
-        error "PERSONAL_FOLDER environment variable is required"
+    if [[ -z "$DEPLOY_USER" ]]; then
+        error "DEPLOY_USER environment variable is required"
         exit 1
     fi
     
@@ -94,14 +94,14 @@ create_remote_directories() {
     
     ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$DEPLOY_SERVER" "
         # Create deployment directories
-        mkdir -p $REMOTE_BASE_PATH/$DEPLOY_USER/$PERSONAL_FOLDER/web-performance-project1-initial
-        mkdir -p $REMOTE_BASE_PATH/$DEPLOY_USER/$PERSONAL_FOLDER/deploy/$TIMESTAMP
+        mkdir -p $REMOTE_BASE_PATH/$DEPLOY_USER/web-performance-project1-initial
+        mkdir -p $REMOTE_BASE_PATH/$DEPLOY_USER/deploy/$TIMESTAMP
         
         # Set proper permissions
-        chmod 755 $REMOTE_BASE_PATH/$DEPLOY_USER/$PERSONAL_FOLDER
-        chmod 755 $REMOTE_BASE_PATH/$DEPLOY_USER/$PERSONAL_FOLDER/web-performance-project1-initial
-        chmod 755 $REMOTE_BASE_PATH/$DEPLOY_USER/$PERSONAL_FOLDER/deploy
-        chmod 755 $REMOTE_BASE_PATH/$DEPLOY_USER/$PERSONAL_FOLDER/deploy/$TIMESTAMP
+        chmod 755 $REMOTE_BASE_PATH/$DEPLOY_USER
+        chmod 755 $REMOTE_BASE_PATH/$DEPLOY_USER/web-performance-project1-initial
+        chmod 755 $REMOTE_BASE_PATH/$DEPLOY_USER/deploy
+        chmod 755 $REMOTE_BASE_PATH/$DEPLOY_USER/deploy/$TIMESTAMP
         
         echo 'Remote directories created successfully'
     "
@@ -115,11 +115,11 @@ upload_files() {
     
     # Upload to timestamped directory
     log "Uploading to timestamped directory: deploy/$TIMESTAMP/"
-    scp -i "$SSH_KEY" -P "$SSH_PORT" -o StrictHostKeyChecking=no -r "$BUILD_DIR"/* "$SSH_USER@$DEPLOY_SERVER:$REMOTE_BASE_PATH/$DEPLOY_USER/$PERSONAL_FOLDER/deploy/$TIMESTAMP/"
+    scp -i "$SSH_KEY" -P "$SSH_PORT" -o StrictHostKeyChecking=no -r "$BUILD_DIR"/* "$SSH_USER@$DEPLOY_SERVER:$REMOTE_BASE_PATH/$DEPLOY_USER/deploy/$TIMESTAMP/"
     
     # Upload to main project directory
     log "Uploading to main project directory: web-performance-project1-initial/"
-    scp -i "$SSH_KEY" -P "$SSH_PORT" -o StrictHostKeyChecking=no -r "$BUILD_DIR"/* "$SSH_USER@$DEPLOY_SERVER:$REMOTE_BASE_PATH/$DEPLOY_USER/$PERSONAL_FOLDER/web-performance-project1-initial/"
+    scp -i "$SSH_KEY" -P "$SSH_PORT" -o StrictHostKeyChecking=no -r "$BUILD_DIR"/* "$SSH_USER@$DEPLOY_SERVER:$REMOTE_BASE_PATH/$DEPLOY_USER/web-performance-project1-initial/"
     
     success "Files uploaded successfully"
 }
@@ -129,7 +129,7 @@ update_symlinks_and_cleanup() {
     log "Updating symlinks and cleaning up old deployments..."
     
     ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$DEPLOY_SERVER" "
-        cd $REMOTE_BASE_PATH/$DEPLOY_USER/$PERSONAL_FOLDER
+        cd $REMOTE_BASE_PATH/$DEPLOY_USER
         
         # Update current symlink
         echo 'Updating current symlink...'
@@ -160,8 +160,8 @@ update_symlinks_and_cleanup() {
 get_deployment_info() {
     log "Getting deployment information..."
     
-    local deployment_url="http://$DEPLOY_SERVER:$SSH_PORT/jenkins/$DEPLOY_USER/$PERSONAL_FOLDER/current/"
-    local project_url="http://$DEPLOY_SERVER:$SSH_PORT/jenkins/$DEPLOY_USER/$PERSONAL_FOLDER/web-performance-project1-initial/"
+    local deployment_url="http://$DEPLOY_SERVER:$SSH_PORT/jenkins/$DEPLOY_USER/current/"
+    local project_url="http://$DEPLOY_SERVER:$SSH_PORT/jenkins/$DEPLOY_USER/web-performance-project1-initial/"
     
     echo ""
     echo "🚀 Remote deployment completed successfully!"
@@ -172,9 +172,9 @@ get_deployment_info() {
     echo ""
     echo "🔧 Deployment Information:"
     echo "   Server: $SSH_USER@$DEPLOY_SERVER:$SSH_PORT"
-    echo "   Deploy Path: $REMOTE_BASE_PATH/$DEPLOY_USER/$PERSONAL_FOLDER/"
+    echo "   Deploy Path: $REMOTE_BASE_PATH/$DEPLOY_USER/"
     echo "   Timestamp: $TIMESTAMP"
-    echo "   Personal Folder: $PERSONAL_FOLDER"
+    echo "   Deploy User: $DEPLOY_USER"
     echo ""
 }
 
@@ -188,7 +188,7 @@ show_usage() {
     echo "  SSH_PORT             SSH port (default: 3334)"
     echo "  SSH_KEY              Path to SSH private key file"
     echo "  DEPLOY_USER          Directory name for deployment (default: lanlee)"
-    echo "  PERSONAL_FOLDER      Personal folder name (e.g., lanlh2)"
+    echo "  DEPLOY_USER          Directory name for deployment (e.g., lanlh)"
     echo "  REMOTE_BASE_PATH     Base deployment path (default: /usr/share/nginx/html/jenkins)"
     echo "  TIMESTAMP            Deployment timestamp (YYYYMMDD format)"
     echo "  BUILD_DIR            Build directory (default: deploy-staging)"
@@ -196,7 +196,7 @@ show_usage() {
     echo "Examples:"
     echo "  # Set environment variables and run"
     echo "  export SSH_KEY=/path/to/private/key"
-    echo "  export PERSONAL_FOLDER=lanlh2"
+    echo "  export DEPLOY_USER=lanlh"
     echo "  export TIMESTAMP=20240915"
     echo "  $0"
 }

@@ -35,8 +35,7 @@ pipeline {
 
         // Deployment paths
         REMOTE_BASE_PATH = "/usr/share/nginx/html/jenkins"
-        DEPLOY_USER = 'lanlee'           // Directory name (kept as lanlee)
-        PERSONAL_FOLDER = "${params.YOUR_NAME}2"
+        DEPLOY_USER = "${params.YOUR_NAME}"      // Directory name based on YOUR_NAME parameter
         TIMESTAMP = sh(script: 'date +%Y%m%d', returnStdout: true).trim()
     }
 
@@ -215,7 +214,7 @@ pipeline {
                     message += "🔥 Firebase: https://lanlh-workshop2.web.app/\\n"
                 }
                 if (actualDeployTarget == 'remote' || actualDeployTarget == 'both') {
-                    message += "🌐 Remote: http://${env.DEPLOY_SERVER}:${env.SSH_PORT}/jenkins/${env.DEPLOY_USER}/${env.PERSONAL_FOLDER}/current/\\n"
+                    message += "🌐 Remote: http://${env.DEPLOY_SERVER}:${env.SSH_PORT}/jenkins/${env.DEPLOY_USER}/current/\\n"
                 }
                 if (actualDeployTarget == 'local' || actualDeployTarget == 'both') {
                     message += "📱 Local: jenkins-ws/template2/current/\\n"
