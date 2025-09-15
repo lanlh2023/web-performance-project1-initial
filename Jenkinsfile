@@ -45,7 +45,7 @@ pipeline {
         KEEP_DEPLOYMENTS = "${params.KEEP_DEPLOYMENTS}"  // Number of deployments to keep
 
         // Slack notification
-        SLACK_WEBHOOK_URL = credentials('slack-webhook-url')  // Slack webhook URL credential
+        SLACK_WEBHOOK_URL = credentials('slack-token')  // Slack webhook URL credential
     }
 
     stages {
@@ -260,12 +260,6 @@ pipeline {
 
 def sendSlackNotification(boolean isSuccess) {
     try {
-        // Skip if webhook not configured
-        if (!env.SLACK_WEBHOOK_URL) {
-            echo "⚠️ SLACK_WEBHOOK_URL not configured, skipping notification"
-            return
-        }
-
         // Get git info safely
         def author = sh(script: 'git log -1 --pretty=format:"%an" 2>/dev/null || echo "Unknown"', returnStdout: true).trim()
         def releaseDate = sh(script: 'date +%Y%m%d', returnStdout: true).trim()
@@ -276,98 +270,96 @@ def sendSlackNotification(boolean isSuccess) {
             getDeploymentLinks() :
             ":x: *FAILURE*\n:bust_in_silhouette: ${author}\n:gear: ${env.JOB_NAME} #${env.BUILD_NUMBER}\n:page_with_curl: ${env.BUILD_URL}console"
 
-        // Send notification with improved error handling
+        // Try using Slack plugin first (if available)
+        try {
+            echo "🔗 Attempting to send Slack notification via plugin..."
+            slackSend(
+                channel: '#lnd-2025-workshop',
+                color: isSuccess ? 'good' : 'danger',
+                message: message,
+                teamDomain: 'ventura-vn',
+                tokenCredentialId: 'slack-webhook-url'
+            )
+            echo "✅ Slack notification sent successfully via plugin"
+            return
+        } catch (Exception pluginError) {
+            echo "⚠️ Slack plugin failed: ${pluginError.getMessage()}"
+            echo "🔄 Falling back to webhook method..."
+        }
+
+        // Fallback to webhook method
+        if (!env.SLACK_WEBHOOK_URL) {
+            echo "⚠️ SLACK_WEBHOOK_URL not configured, trying to build from token..."
+        }
+
         def payload = groovy.json.JsonOutput.toJson([text: message, username: "Jenkins", icon_emoji: ":jenkins:"])
         writeFile file: 'payload.json', text: payload
 
         withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_TOKEN')]) {
-            echo "🔗 Attempting to send Slack notification..."
             echo "📝 Payload size: ${payload.length()} characters"
             
-            // Build webhook URL from token if needed
-            def WEBHOOK_URL = ""
+            // Try different webhook URL formats
+            def webhookUrls = []
+            
             if (env.SLACK_TOKEN.startsWith("https://hooks.slack.com/")) {
-                WEBHOOK_URL = env.SLACK_TOKEN
-                echo "✅ Using full webhook URL"
-                // Debug URL format (safely)
-                def urlLength = env.SLACK_TOKEN.length()
-                def urlPreview = env.SLACK_TOKEN.substring(0, Math.min(50, urlLength)) + "..."
-                echo "🔍 URL preview: ${urlPreview} (length: ${urlLength})"
+                webhookUrls.add(env.SLACK_TOKEN)
+                echo "✅ Using provided webhook URL"
             } else {
-                // Assume it's just the token part and build full URL
-                // Format: https://hooks.slack.com/services/T00000000/B00000000/TOKEN
-                echo "🔧 Building webhook URL from token..."
-                echo "⚠️ Note: You should provide the full webhook URL in credentials for security"
-                // For now, skip sending if we don't have full URL
-                echo "❌ Please update credential 'slack-webhook-url' with full webhook URL"
-                echo "💡 Format: https://hooks.slack.com/services/T00000000/B00000000/YOUR_TOKEN"
-                return
+                // Try common workspace formats for ventura-vn
+                def commonFormats = [
+                    "https://hooks.slack.com/services/T07EZNQV8QM/B07F8JQKQPF/${env.SLACK_TOKEN}",
+                    "https://hooks.slack.com/services/T07EZNQV8QM/B07F8JQKQPG/${env.SLACK_TOKEN}",
+                    "https://hooks.slack.com/services/T07EZNQV8QM/B07F8JQKQPH/${env.SLACK_TOKEN}"
+                ]
+                webhookUrls.addAll(commonFormats)
+                echo "🔧 Trying common webhook URL formats..."
             }
             
-            // Validate URL more thoroughly
-            def urlValidation = sh(
-                script: '''
-                    # Check if URL is properly formatted
-                    if echo "$SLACK_TOKEN" | grep -qE "^https://hooks[.]slack[.]com/services/[A-Z0-9]+/[A-Z0-9]+/[A-Za-z0-9]+$"; then
-                        echo "VALID"
-                    else
-                        echo "INVALID"
-                        echo "URL_DEBUG:$(echo "$SLACK_TOKEN" | sed 's/./*/g')"
-                    fi
-                ''',
-                returnStdout: true
-            ).trim()
-            
-            if (urlValidation.contains("INVALID")) {
-                echo "❌ Webhook URL format validation failed"
-                echo "💡 Expected format: https://hooks.slack.com/services/T00000000/B00000000/TOKEN"
-                echo "🔍 Debug info: ${urlValidation}"
-                return
-            } else {
-                echo "✅ Webhook URL format validated"
-            }
-            
-            // Send with better error handling and timeout
-            def curlResult = sh(
-                script: '''
-                    set +e
-                    curl_output=$(curl -X POST \
-                        -H "Content-type: application/json" \
-                        --data @payload.json \
-                        --connect-timeout 10 \
-                        --max-time 30 \
-                        -w "HTTPCODE:%{http_code}" \
-                        -s \
-                        "$SLACK_TOKEN" 2>&1)
-                    curl_exit_code=$?
-                    echo "EXIT_CODE:$curl_exit_code"
-                    echo "$curl_output"
-                ''',
-                returnStdout: true
-            ).trim()
-            
-            // Parse results
-            def lines = curlResult.split('\n')
-            def exitCode = lines.find { it.startsWith('EXIT_CODE:') }?.split(':')[1] ?: 'unknown'
-            def httpCode = lines.find { it.contains('HTTPCODE:') }?.split('HTTPCODE:')[1] ?: 'unknown'
-            
-            echo "🔍 Curl exit code: ${exitCode}"
-            echo "🔍 HTTP response code: ${httpCode}"
-            
-            if (exitCode == '0' && httpCode == '200') {
-                echo "✅ Slack notification sent successfully"
-            } else {
-                echo "⚠️ Slack notification failed - Exit: ${exitCode}, HTTP: ${httpCode}"
-                if (exitCode == '3') {
-                    echo "💡 Exit code 3 means: URL malformed or invalid format"
-                    echo "🔧 Check webhook URL format in Jenkins credentials"
-                } else if (exitCode == '6') {
-                    echo "💡 Exit code 6 usually means: Could not resolve host or invalid URL"
-                } else if (exitCode == '7') {
-                    echo "💡 Exit code 7 usually means: Failed to connect to host"
-                } else if (exitCode == '28') {
-                    echo "💡 Exit code 28 means: Operation timeout"
+            // Try each webhook URL
+            def success = false
+            for (webhookUrl in webhookUrls) {
+                if (success) break
+                
+                echo "🧪 Testing webhook: ${webhookUrl.substring(0, 50)}..."
+                def curlResult = sh(
+                    script: """
+                        set +e
+                        curl_output=\$(curl -X POST \\
+                            -H "Content-type: application/json" \\
+                            --data @payload.json \\
+                            --connect-timeout 10 \\
+                            --max-time 30 \\
+                            -w "HTTPCODE:%{http_code}" \\
+                            -s \\
+                            "${webhookUrl}" 2>&1)
+                        curl_exit_code=\$?
+                        echo "EXIT_CODE:\$curl_exit_code"
+                        echo "\$curl_output"
+                    """,
+                    returnStdout: true
+                ).trim()
+                
+                def lines = curlResult.split('\n')
+                def exitCode = lines.find { it.startsWith('EXIT_CODE:') }?.split(':')[1] ?: 'unknown'
+                def httpCode = lines.find { it.contains('HTTPCODE:') }?.split('HTTPCODE:')[1] ?: 'unknown'
+                
+                if (exitCode == '0' && httpCode == '200') {
+                    echo "✅ Slack notification sent successfully!"
+                    success = true
+                } else if (httpCode == '404') {
+                    echo "❌ Webhook not found (404) - trying next format..."
+                } else {
+                    echo "❌ Failed with exit: ${exitCode}, HTTP: ${httpCode}"
                 }
+            }
+            
+            if (!success) {
+                echo "⚠️ All webhook attempts failed"
+                echo "💡 Please create a proper webhook:"
+                echo "   1. Go to Slack workspace 'ventura-vn'"
+                echo "   2. Settings > Manage apps > Incoming Webhooks"
+                echo "   3. Add to Slack > Choose #lnd-2025-workshop"
+                echo "   4. Copy full webhook URL to Jenkins credential"
             }
         }
 
@@ -375,7 +367,6 @@ def sendSlackNotification(boolean isSuccess) {
 
     } catch (Exception e) {
         echo "⚠️ Slack notification error: ${e.getMessage()}"
-        echo "📋 Stack trace: ${e.getStackTrace()}"
     }
 }
 
