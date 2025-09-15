@@ -1,9 +1,8 @@
-const js = require("@eslint/js");
 const globals = require("globals");
 
 module.exports = [
   {
-    files: ["**/*.{js,mjs,cjs}"],
+    files: ["**/*.js"],
     languageOptions: {
       ecmaVersion: 2020,
       sourceType: "script",
@@ -13,9 +12,9 @@ module.exports = [
       }
     },
     rules: {
-      ...js.configs.recommended.rules,
       "no-unused-vars": "warn",
-      "no-console": "off"
+      "no-console": "off",
+      "no-undef": "error"
     }
   },
   {
@@ -30,9 +29,9 @@ module.exports = [
       }
     },
     rules: {
-      ...js.configs.recommended.rules,
       "no-unused-vars": "warn",
-      "no-console": "off"
+      "no-console": "off",
+      "no-undef": "error"
     }
   }
 ];

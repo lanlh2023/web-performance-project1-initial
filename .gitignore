@@ -68,4 +68,7 @@ node_modules/
 # dataconnect generated files
 .dataconnect
 
+# Firebase service account keys (sensitive)
+*-firebase-adminsdk-*.json
+
 package-lock.json

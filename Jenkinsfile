@@ -114,23 +114,24 @@ pipeline {
                 echo "📦 Building project..."
 
                 sh '''
-                    # Clean and install dependencies with full dependency resolution
+                    # Clean installation to resolve dependency conflicts
+                    echo "🧹 Cleaning previous installations..."
                     rm -rf node_modules package-lock.json
                     npm cache clean --force
+                    
+                    echo "📦 Installing dependencies with conflict resolution..."
                     npm install --no-optional --no-audit --silent
-
-                    # Verify critical ESLint dependencies
-                    echo "🔍 Verifying ESLint dependencies..."
                     
-                    if [ ! -f "node_modules/@eslint/js/package.json" ]; then
-                        echo "⚠️ @eslint/js missing, installing explicitly..."
-                        npm install @eslint/js --no-audit --silent
-                    fi
+                    # Dedupe to resolve version conflicts (as recommended by Stack Overflow)
+                    echo "🔧 Deduplicating dependencies to resolve conflicts..."
+                    npm dedupe
                     
-                    if [ ! -f "node_modules/globals/package.json" ]; then
-                        echo "⚠️ globals missing, installing explicitly..."
-                        npm install globals --no-audit --silent
-                    fi
+                    # Verify no duplicate versions exist
+                    echo "🔍 Checking for dependency conflicts..."
+                    echo "Globals versions:"
+                    npm ls globals || true
+                    echo "@eslint/js versions:"
+                    npm ls @eslint/js || true
                     
                     # Verify installations
                     echo "🔍 Final verification..."
@@ -142,6 +143,7 @@ pipeline {
                     else
                         echo "❌ ESLint or dependencies missing"
                         ls -la node_modules/@eslint/ || echo "No @eslint directory"
+                        exit 1
                     fi
                     
                     # Check Jest
@@ -150,12 +152,13 @@ pipeline {
                         ./node_modules/.bin/jest --version
                     else
                         echo "❌ Jest not found in node_modules"
+                        exit 1
                     fi
 
                     # Verify Firebase CLI
                     firebase --version >/dev/null 2>&1 || { echo "❌ Firebase CLI verification failed"; exit 1; }
 
-                    echo "✅ Build completed with verified dependencies"
+                    echo "✅ Build completed with conflict-free dependencies"
                 '''
             }
         }
