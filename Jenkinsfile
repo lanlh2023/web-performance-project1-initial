@@ -278,7 +278,7 @@ def sendSlackNotification(boolean isSuccess) {
                 color: isSuccess ? 'good' : 'danger',
                 message: message,
                 teamDomain: 'ventura-vn',
-                tokenCredentialId: 'slack-webhook-url'
+                tokenCredentialId: 'slack-token'
             )
             echo "✅ Slack notification sent successfully via plugin"
             return
@@ -295,7 +295,7 @@ def sendSlackNotification(boolean isSuccess) {
         def payload = groovy.json.JsonOutput.toJson([text: message, username: "Jenkins", icon_emoji: ":jenkins:"])
         writeFile file: 'payload.json', text: payload
 
-        withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_TOKEN')]) {
+        withCredentials([string(credentialsId: 'slack-token', variable: 'SLACK_TOKEN')]) {
             echo "📝 Payload size: ${payload.length()} characters"
             
             // Try different webhook URL formats
