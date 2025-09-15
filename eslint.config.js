@@ -14,7 +14,14 @@ module.exports = [
     rules: {
       "no-unused-vars": "warn",
       "no-console": "off",
-      "no-undef": "error"
+      "no-undef": "error",
+      // Add some basic Airbnb-style rules
+      "indent": ["error", 2],
+      "quotes": ["error", "single"],
+      "semi": ["error", "always"],
+      "comma-dangle": ["error", "never"],
+      "no-trailing-spaces": "error",
+      "eol-last": "error"
     }
   },
   {
@@ -31,7 +38,13 @@ module.exports = [
     rules: {
       "no-unused-vars": "warn",
       "no-console": "off",
-      "no-undef": "error"
+      "no-undef": "error",
+      "indent": ["error", 2],
+      "quotes": ["error", "single"],
+      "semi": ["error", "always"],
+      "comma-dangle": ["error", "never"],
+      "no-trailing-spaces": "error",
+      "eol-last": "error"
     }
   }
 ];

@@ -127,7 +127,7 @@ pipeline {
                     echo "Verifying ESLint installation..."
                     npx eslint --version || {
                         echo "ESLint not found, installing..."
-                        npm install eslint --save-dev
+                        npm install eslint eslint-config-airbnb-base eslint-plugin-import --save-dev
                         npx eslint --version
                     }
                     
