@@ -120,28 +120,14 @@ pipeline {
                     rm -rf node_modules package-lock.json
                     npm cache clean --force
                     
-                    # Install dependencies (package.json already has all needed devDependencies)
+                    # Install basic dependencies only
                     npm install --no-optional --no-audit
                     
-                    # Verify installations using npx (more reliable in containers)
-                    echo "Verifying ESLint installation..."
-                    npx eslint --version || {
-                        echo "ESLint not found, installing..."
-                        npm install eslint eslint-config-airbnb-base eslint-plugin-import --save-dev
-                        npx eslint --version
-                    }
-                    
-                    echo "Verifying Jest installation..."
-                    npx jest --version || {
-                        echo "Jest not found, installing..."
-                        npm install jest --save-dev
-                        npx jest --version
-                    }
-                    
+                    # Verify Firebase CLI (needed for deployment)
                     echo "Verifying Firebase CLI..."
                     firebase --version || exit 1
                     
-                    echo "✅ All tools verified successfully"
+                    echo "✅ Build completed successfully"
                 '''
             }
         }
@@ -153,11 +139,29 @@ pipeline {
                     # Set npm environment for Jenkins
                     export PATH="$PWD/node_modules/.bin:$PATH"
                     
-                    # Run linting using npm script (more reliable)
-                    npm run lint:check
+                    # Install and verify ESLint only when needed for testing
+                    echo "Installing ESLint for linting..."
+                    npx eslint --version || {
+                        echo "ESLint not found, installing..."
+                        npm install eslint eslint-config-airbnb-base eslint-plugin-import --save-dev
+                        npx eslint --version
+                    }
                     
-                    # Run tests using npm script
-                    npm test
+                    # Install and verify Jest only when needed for testing
+                    echo "Installing Jest for testing..."
+                    npx jest --version || {
+                        echo "Jest not found, installing..."
+                        npm install jest --save-dev
+                        npx jest --version
+                    }
+                    
+                    # Run linting
+                    echo "Running ESLint..."
+                    npx eslint 'js/**/*.js' --max-warnings 0
+                    
+                    # Run tests
+                    echo "Running Jest tests..."
+                    npx jest
                 '''
             }
             post {
