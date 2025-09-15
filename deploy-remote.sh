@@ -130,31 +130,24 @@ upload_files() {
 update_symlinks_and_cleanup() {
     log "Updating symlinks and cleaning up old deployments..."
     
-    ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$DEPLOY_SERVER" "
-        cd $REMOTE_BASE_PATH/$DEPLOY_USER
-        
-        # Update current symlink
-        echo 'Updating current symlink...'
-        rm -f current
-        ln -sf deploy/$TIMESTAMP current
-        
-        # Verify symlink
-        if [[ -L current && -d current ]]; then
-            echo 'Current symlink updated successfully'
-        else
-            echo 'Warning: Current symlink may not be working properly'
-        fi
-        
-        # Cleanup old deployments (keep last N)
-        echo "Cleaning up old deployments (keeping last $KEEP_DEPLOYMENTS)..."
-        cd deploy
-        KEEP_NUM=$((KEEP_DEPLOYMENTS + 1))
-        ls -1t | grep -E '^[0-9]{14}$' | tail -n +$KEEP_NUM | xargs -r rm -rf
-        
-        # Show remaining deployments
-        echo 'Remaining deployments:'
-        ls -la | grep -E '^d.*[0-9]{14}$' || echo 'No dated directories found'
-    "
+    # Calculate keep number locally
+    local KEEP_NUM=$((KEEP_DEPLOYMENTS + 1))
+    
+    ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$DEPLOY_SERVER" \
+        "cd $REMOTE_BASE_PATH/$DEPLOY_USER && \
+         echo 'Updating current symlink...' && \
+         rm -f current && \
+         ln -sf deploy/$TIMESTAMP current && \
+         if [[ -L current && -d current ]]; then \
+             echo 'Current symlink updated successfully'; \
+         else \
+             echo 'Warning: Current symlink may not be working properly'; \
+         fi && \
+         echo 'Cleaning up old deployments (keeping last $KEEP_DEPLOYMENTS)...' && \
+         cd deploy && \
+         ls -1t | grep -E '^[0-9]{14}$' | tail -n +$KEEP_NUM | xargs -r rm -rf && \
+         echo 'Remaining deployments:' && \
+         ls -la | grep -E '^d.*[0-9]{14}$' || echo 'No dated directories found'"
     
     success "Symlinks updated and cleanup completed"
 }
