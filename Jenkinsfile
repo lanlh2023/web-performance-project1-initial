@@ -11,7 +11,7 @@ pipeline {
     parameters {
         choice(
             name: 'DEPLOY_ENVIRONMENT',
-            choices: ['both', 'firebase', 'remote', 'local'],
+            choices: ['local', 'firebase', 'remote', 'both'],
             description: 'Choose deployment environment: both (Firebase + Remote), firebase (Hosting), remote (Server), or local (template2)'
         )
         string(
@@ -308,7 +308,7 @@ def sendSlackNotification(boolean isSuccess) {
             def urlValidation = sh(
                 script: '''
                     # Check if URL is properly formatted
-                    if echo "$SLACK_TOKEN" | grep -qE '^https://hooks\.slack\.com/services/[A-Z0-9]+/[A-Z0-9]+/[A-Za-z0-9]+$'; then
+                    if echo "$SLACK_TOKEN" | grep -qE "^https://hooks[.]slack[.]com/services/[A-Z0-9]+/[A-Z0-9]+/[A-Za-z0-9]+$"; then
                         echo "VALID"
                     else
                         echo "INVALID"
