@@ -113,29 +113,35 @@ pipeline {
             steps {
                 echo "📦 Building project..."
                 sh '''
+                    # Set npm environment for Jenkins
+                    export PATH="$PWD/node_modules/.bin:$PATH"
+                    
                     # Clean và install
                     rm -rf node_modules package-lock.json
                     npm cache clean --force
                     
-                    # BỎ --silent để thấy lỗi
+                    # Install dependencies (package.json already has all needed devDependencies)
                     npm install --no-optional --no-audit
                     
-                    # Cài ESLint nếu thiếu
-                    if [ ! -f "node_modules/.bin/eslint" ]; then
-                        echo "Installing ESLint..."
-                        npm install eslint eslint-plugin-import eslint-config-airbnb-base --save-dev
-                    fi
+                    # Verify installations using npx (more reliable in containers)
+                    echo "Verifying ESLint installation..."
+                    npx eslint --version || {
+                        echo "ESLint not found, installing..."
+                        npm install eslint --save-dev
+                        npx eslint --version
+                    }
                     
-                    # Cài Jest nếu thiếu  
-                    if [ ! -f "node_modules/.bin/jest" ]; then
-                        echo "Installing Jest..."
+                    echo "Verifying Jest installation..."
+                    npx jest --version || {
+                        echo "Jest not found, installing..."
                         npm install jest --save-dev
-                    fi
+                        npx jest --version
+                    }
                     
-                    # Verify
-                    ./node_modules/.bin/eslint --version || exit 1
-                    ./node_modules/.bin/jest --version || exit 1
+                    echo "Verifying Firebase CLI..."
                     firebase --version || exit 1
+                    
+                    echo "✅ All tools verified successfully"
                 '''
             }
         }
@@ -144,19 +150,14 @@ pipeline {
             steps {
                 echo "🧪 Running linting and tests..."
                 sh '''
-                    # Run ESLint
-                    if [ -f "node_modules/.bin/eslint" ]; then
-                        ./node_modules/.bin/eslint 'js/**/*.js' --max-warnings 0
-                    else
-                        npx eslint 'js/**/*.js' --max-warnings 0
-                    fi
+                    # Set npm environment for Jenkins
+                    export PATH="$PWD/node_modules/.bin:$PATH"
                     
-                    # Run Jest
-                    if [ -f "node_modules/.bin/jest" ]; then
-                        ./node_modules/.bin/jest
-                    else
-                        npx jest
-                    fi
+                    # Run linting using npm script (more reliable)
+                    npm run lint:check
+                    
+                    # Run tests using npm script
+                    npm test
                 '''
             }
             post {
