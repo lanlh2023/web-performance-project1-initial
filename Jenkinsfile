@@ -1,18 +1,13 @@
 pipeline {
     agent any
 
-    // Trigger pipeline automatically on SCM changes (commits to main branch)
-    triggers {
-        // Poll SCM every minute for changes
-        pollSCM('* * * * *')
-        // Alternative: Use webhook trigger if configured
-        // githubPush()
-    }
-
-    tools {
-        // Use Node.js 20+ for Firebase CLI compatibility
-        nodejs 'NodeJS-20'  // Make sure this matches your Jenkins NodeJS installation name
-    }
+    // TRIGGERS COMMENTED OUT - Manual trigger only for now
+    // triggers {
+    //     // Poll SCM every minute for changes
+    //     pollSCM('* * * * *')
+    //     // Alternative: Use webhook trigger if configured
+    //     // githubPush()
+    // }
 
     parameters {
         choice(
@@ -127,40 +122,37 @@ pipeline {
             }
         }
 
-        // TEMPORARILY COMMENTED OUT - ESLint issues
-        /*
-        stage('Lint/Test') {
-            steps {
-                echo "🧪 Running linting and tests..."
+        // stage('Lint/Test') {
+        //     steps {
+        //         echo "🧪 Running linting and tests..."
 
-                sh '''
-                    echo "🔍 Running test:ci (lint + test)..."
-                    npm run test:ci
+        //         sh '''
+        //             echo "🔍 Running test:ci (lint + test)..."
+        //             npm run test:ci
 
-                    echo "✅ All tests and linting passed!"
-                '''
-            }
+        //             echo "✅ All tests and linting passed!"
+        //         '''
+        //     }
 
-            post {
-                always {
-                    // Archive test results if available
-                    script {
-                        if (fileExists('coverage/')) {
-                            echo "📊 Archiving test coverage results..."
-                            publishHTML([
-                                allowMissing: false,
-                                alwaysLinkToLastBuild: true,
-                                keepAll: true,
-                                reportDir: 'coverage/lcov-report',
-                                reportFiles: 'index.html',
-                                reportName: 'Test Coverage Report'
-                            ])
-                        }
-                    }
-                }
-            }
-        }
-        */
+        //     post {
+        //         always {
+        //             // Archive test results if available
+        //             script {
+        //                 if (fileExists('coverage/')) {
+        //                     echo "📊 Archiving test coverage results..."
+        //                     publishHTML([
+        //                         allowMissing: false,
+        //                         alwaysLinkToLastBuild: true,
+        //                         keepAll: true,
+        //                         reportDir: 'coverage/lcov-report',
+        //                         reportFiles: 'index.html',
+        //                         reportName: 'Test Coverage Report'
+        //                     ])
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
 
         stage('Deploy') {
             when {
