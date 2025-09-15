@@ -246,7 +246,7 @@ def sendSlackNotification(boolean isSuccess) {
 
         def gitAuthor = "Unknown"
         def gitCommit = "No commit message"
-        def gitTimestamp = new Date().format("yyyy-MM-dd HH:mm:ss UTC")
+        def gitTimestamp = sh(script: 'date -u +"%Y-%m-%d %H:%M:%S UTC"', returnStdout: true).trim()
         
         // Safely get git information
         try {
