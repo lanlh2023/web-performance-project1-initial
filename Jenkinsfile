@@ -123,7 +123,7 @@ pipeline {
                     # Cài ESLint nếu thiếu
                     if [ ! -f "node_modules/.bin/eslint" ]; then
                         echo "Installing ESLint..."
-                        npm -g install eslint-plugin-import eslint-config-airbnb-base
+                        npm install eslint eslint-plugin-import eslint-config-airbnb-base --save-dev
                     fi
                     
                     # Cài Jest nếu thiếu  
