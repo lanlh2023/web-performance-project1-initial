@@ -20,11 +20,6 @@ pipeline {
             defaultValue: 'lanlh',
             description: 'Your name for creating personal deployment folder (e.g., lanlh2)'
         )
-        booleanParam(
-            name: 'AUTO_DEPLOY',
-            defaultValue: true,
-            description: 'Automatically deploy to both Firebase and remote server (used for SCM-triggered builds)'
-        )
     }
 
     environment {
@@ -144,12 +139,6 @@ pipeline {
                     // Determine deployment target
                     def deployTarget = params.DEPLOY_ENVIRONMENT
 
-                    // For SCM-triggered builds (automatic), default to 'both'
-                    if (env.BUILD_CAUSE == 'SCMTRIGGER' || params.AUTO_DEPLOY) {
-                        deployTarget = 'both'
-                        echo "🤖 SCM-triggered build detected - deploying to both Firebase and remote server"
-                    }
-
                     echo "🚀 Starting deployment to: ${deployTarget}"
 
                     // Prepare deployment files
@@ -226,9 +215,6 @@ pipeline {
         success {
             script {
                 def actualDeployTarget = params.DEPLOY_ENVIRONMENT
-                if (env.BUILD_CAUSE == 'SCMTRIGGER' || params.AUTO_DEPLOY) {
-                    actualDeployTarget = 'both'
-                }
 
                 def message = "✅ Build #${env.BUILD_NUMBER} completed successfully!\\n"
                 message += "🎯 Environment: ${actualDeployTarget} | 📅 ${env.TIMESTAMP}\\n"
