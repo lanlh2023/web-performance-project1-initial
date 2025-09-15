@@ -76,15 +76,15 @@ check_prerequisites() {
 # Prepare build directory
 prepare_build() {
     log "Preparing build directory..."
-    
+
     # Remove existing build directory
     if [[ -d "$BUILD_DIR" ]]; then
         rm -rf "$BUILD_DIR"
     fi
-    
+
     # Create build directory
     mkdir -p "$BUILD_DIR"
-    
+
     # Copy essential files for deployment
     ESSENTIAL_FILES=(
         "index.html"
@@ -93,7 +93,7 @@ prepare_build() {
         "js"
         "images"
     )
-    
+
     for item in "${ESSENTIAL_FILES[@]}"; do
         if [[ -e "$item" ]]; then
             log "Copying $item to build directory..."
@@ -102,7 +102,7 @@ prepare_build() {
             warning "File/directory $item not found, skipping..."
         fi
     done
-    
+
     success "Build directory prepared"
 }
 
@@ -110,29 +110,29 @@ prepare_build() {
 # Deploy to Firebase
 deploy_to_firebase() {
     log "Deploying to Firebase Hosting..."
-    
+
     # Ensure we're using the correct authentication method
     # Unset any FIREBASE_TOKEN to avoid deprecated auth warning
     unset FIREBASE_TOKEN 2>/dev/null || true
-    
     # Verify Firebase configuration
+
     log "Verifying Firebase configuration..."
     if [[ ! -f "firebase.json" ]]; then
         error "firebase.json not found"
         error "Run 'firebase init' to initialize Firebase configuration"
         exit 1
     fi
-    
+
     # Verify authentication
     log "Verifying Firebase authentication..."
     log "GOOGLE_APPLICATION_CREDENTIALS: $GOOGLE_APPLICATION_CREDENTIALS"
-    
+
     # Check if credentials file exists and is readable
     if [[ ! -f "$GOOGLE_APPLICATION_CREDENTIALS" ]]; then
         error "Credentials file not found: $GOOGLE_APPLICATION_CREDENTIALS"
         exit 1
     fi
-    
+
     # Test Firebase authentication with projects list
     if ! firebase projects:list >/dev/null 2>&1; then
         error "Firebase authentication failed"
@@ -143,23 +143,23 @@ deploy_to_firebase() {
         head -3 "$GOOGLE_APPLICATION_CREDENTIALS" || true
         exit 1
     fi
-    
+
     log "Firebase authentication successful"
-    
+
     # Deploy to Firebase
     log "Starting Firebase deployment..."
     NODE_OPTIONS="--max-old-space-size=4096" firebase deploy --only hosting --project="$FIREBASE_PROJECT_ID" --non-interactive
-    
+
     success "Deployment to Firebase completed"
 }
 
 # Get deployment URL
 get_deployment_url() {
     log "Getting deployment information..."
-    
+
     local hosting_url="https://${FIREBASE_PROJECT_ID}.web.app"
     local custom_domain_url="https://${FIREBASE_PROJECT_ID}.firebaseapp.com"
-    
+
     echo ""
     echo "🚀 Deployment completed successfully!"
     echo ""
@@ -180,7 +180,7 @@ cleanup() {
         log "Cleaning up temporary credentials file..."
         rm -f "$TEMP_CREDENTIALS_FILE"
     fi
-    
+
     # Clean up build directory
     if [[ "$1" == "--keep-build" ]]; then
         log "Keeping build directory as requested"
@@ -216,7 +216,7 @@ show_usage() {
 # Main deployment process
 main() {
     local keep_build=false
-    
+
     # Parse command line arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -235,23 +235,23 @@ main() {
                 ;;
         esac
     done
-    
+
     log "Starting Firebase deployment of $PROJECT_NAME..."
-    
+
     # Run deployment steps
     check_prerequisites
     setup_credentials
     prepare_build
     deploy_to_firebase
     get_deployment_url
-    
+
     # Cleanup
     if [[ "$keep_build" == true ]]; then
         cleanup --keep-build
     else
         cleanup
     fi
-    
+
     success "🎉 Firebase deployment completed successfully!"
 }
 

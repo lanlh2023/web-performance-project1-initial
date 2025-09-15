@@ -28,12 +28,14 @@ pipeline {
         FIREBASE_PROJECT = 'lanlh-workshop2'
 
         // Remote server credentials
-        DEPLOY_USER = 'lanlee'
-        DEPLOY_SERVER = '10.1.1.195'
-        SSH_KEY = credentials('ssh-private-key')
+        SSH_USER = 'newbie'              // SSH user for connection
+        DEPLOY_SERVER = '118.69.34.46'
+        SSH_PORT = '3334'
+        SSH_KEY = credentials('ssh-private-key')  // Should be newbie_id_rsa
 
         // Deployment paths
         REMOTE_BASE_PATH = "/usr/share/nginx/html/jenkins"
+        DEPLOY_USER = 'lanlee'           // Directory name (kept as lanlee)
         PERSONAL_FOLDER = "${params.YOUR_NAME}2"
         TIMESTAMP = sh(script: 'date +%Y%m%d', returnStdout: true).trim()
     }
@@ -185,25 +187,15 @@ pipeline {
                         echo "🌐 Deploying to Remote Server..."
 
                         sh '''
-                            # Create remote directory structure
-                            ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$DEPLOY_USER@$DEPLOY_SERVER" "
-                                mkdir -p $REMOTE_BASE_PATH/$PERSONAL_FOLDER/web-performance-project1-initial
-                                mkdir -p $REMOTE_BASE_PATH/$PERSONAL_FOLDER/deploy/$TIMESTAMP
-                            " >/dev/null 2>&1
+                            echo "🔧 Running remote deployment script..."
 
-                            # Upload deployment files
-                            scp -i "$SSH_KEY" -o StrictHostKeyChecking=no -r deploy-staging/* "$DEPLOY_USER@$DEPLOY_SERVER:$REMOTE_BASE_PATH/$PERSONAL_FOLDER/deploy/$TIMESTAMP/" >/dev/null 2>&1
-                            scp -i "$SSH_KEY" -o StrictHostKeyChecking=no -r deploy-staging/* "$DEPLOY_USER@$DEPLOY_SERVER:$REMOTE_BASE_PATH/$PERSONAL_FOLDER/web-performance-project1-initial/" >/dev/null 2>&1
+                            # Make sure the script is executable
+                            chmod +x deploy-remote.sh
 
-                            # Update symlink and cleanup
-                            ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$DEPLOY_USER@$DEPLOY_SERVER" "
-                                cd $REMOTE_BASE_PATH/$PERSONAL_FOLDER/deploy
-                                rm -f current
-                                ln -sf $TIMESTAMP current
-                                ls -1t | grep -E '^[0-9]{8}$' | tail -n +6 | xargs -r rm -rf
-                            " >/dev/null 2>&1
+                            echo "🚀 Executing deploy-remote.sh..."
+                            ./deploy-remote.sh
 
-                            echo "✅ Remote server deployment completed"
+                            echo "✅ Remote deployment completed"
                         '''
                     }
                 }
@@ -223,7 +215,7 @@ pipeline {
                     message += "🔥 Firebase: https://lanlh-workshop2.web.app/\\n"
                 }
                 if (actualDeployTarget == 'remote' || actualDeployTarget == 'both') {
-                    message += "🌐 Remote: http://${env.DEPLOY_SERVER}/jenkins/${env.PERSONAL_FOLDER}/deploy/current/\\n"
+                    message += "🌐 Remote: http://${env.DEPLOY_SERVER}:${env.SSH_PORT}/jenkins/${env.DEPLOY_USER}/${env.PERSONAL_FOLDER}/current/\\n"
                 }
                 if (actualDeployTarget == 'local' || actualDeployTarget == 'both') {
                     message += "📱 Local: jenkins-ws/template2/current/\\n"
