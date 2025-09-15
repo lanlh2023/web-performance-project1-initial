@@ -159,8 +159,6 @@ pipeline {
                     fi
                 '''
             }
-        }
-
             post {
                 always {
                     // Archive test results if available
