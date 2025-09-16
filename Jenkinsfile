@@ -24,6 +24,16 @@ pipeline {
             defaultValue: '5',
             description: 'Number of deployment folders to keep (older ones will be deleted)'
         )
+        string(
+            name: 'SLACK_CHANNEL',
+            defaultValue: '#lnd-2025-workshop',
+            description: 'Slack channel for notifications (e.g., #jenkins-notifications)'
+        )
+        string(
+            name: 'SLACK_TEAM_DOMAIN',
+            defaultValue: 'ventura-vn',
+            description: 'Slack workspace domain (e.g., your-company)'
+        )
     }
 
     environment {
@@ -46,6 +56,8 @@ pipeline {
 
         // Slack notification
         SLACK_WEBHOOK_URL = credentials('slack-token')  // Slack webhook URL credential
+        SLACK_CHANNEL = "${params.SLACK_CHANNEL}"      // Slack channel from parameters
+        SLACK_TEAM_DOMAIN = "${params.SLACK_TEAM_DOMAIN}"  // Slack workspace from parameters
     }
 
     stages {
@@ -272,11 +284,11 @@ def sendSlackNotification(boolean isSuccess) {
 
         // Send notification using Slack plugin
         slackSend(
-            channel: '#lnd-2025-workshop',  // Change to your channel
+            channel: env.SLACK_CHANNEL,     // Use environment variable
             color: color,
             message: message,
-            teamDomain: 'ventura-vn',  // Change to your Slack workspace
-            token: env.SLACK_WEBHOOK_URL  // Use existing environment variable
+            teamDomain: env.SLACK_TEAM_DOMAIN,  // Use environment variable
+            token: env.SLACK_WEBHOOK_URL    // Use existing environment variable
         )
 
         echo "✅ Slack notification sent successfully using plugin"
