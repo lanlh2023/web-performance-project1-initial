@@ -1,8 +1,9 @@
+const js = require("@eslint/js");
 const globals = require("globals");
 
 module.exports = [
   {
-    files: ["**/*.js"],
+    files: ["**/*.{js,mjs,cjs}"],
     languageOptions: {
       ecmaVersion: 2020,
       sourceType: "script",
@@ -12,16 +13,9 @@ module.exports = [
       }
     },
     rules: {
+      ...js.configs.recommended.rules,
       "no-unused-vars": "warn",
-      "no-console": "off",
-      "no-undef": "error",
-      // Add some basic Airbnb-style rules
-      "indent": ["error", 2],
-      "quotes": ["error", "single"],
-      "semi": ["error", "always"],
-      "comma-dangle": ["error", "never"],
-      "no-trailing-spaces": "error",
-      "eol-last": "error"
+      "no-console": "off"
     }
   },
   {
@@ -36,15 +30,9 @@ module.exports = [
       }
     },
     rules: {
+      ...js.configs.recommended.rules,
       "no-unused-vars": "warn",
-      "no-console": "off",
-      "no-undef": "error",
-      "indent": ["error", 2],
-      "quotes": ["error", "single"],
-      "semi": ["error", "always"],
-      "comma-dangle": ["error", "never"],
-      "no-trailing-spaces": "error",
-      "eol-last": "error"
+      "no-console": "off"
     }
   }
 ];

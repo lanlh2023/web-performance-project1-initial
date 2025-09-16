@@ -120,12 +120,17 @@ pipeline {
                     rm -rf node_modules package-lock.json
                     npm cache clean --force
                     
-                    # Install basic dependencies only
+                    # Install all dependencies from package.json
                     npm install --no-optional --no-audit
                     
                     # Verify Firebase CLI (needed for deployment)
                     echo "Verifying Firebase CLI..."
                     firebase --version || exit 1
+                    
+                    # Verify ESLint and Jest are installed
+                    echo "Verifying development tools..."
+                    npx eslint --version || exit 1
+                    npx jest --version || exit 1
                     
                     echo "✅ Build completed successfully"
                 '''
@@ -139,29 +144,13 @@ pipeline {
                     # Set npm environment for Jenkins
                     export PATH="$PWD/node_modules/.bin:$PATH"
                     
-                    # Install and verify ESLint only when needed for testing
-                    echo "Installing ESLint for linting..."
-                    npx eslint --version || {
-                        echo "ESLint not found, installing..."
-                        npm install eslint eslint-config-airbnb-base eslint-plugin-import --save-dev
-                        npx eslint --version
-                    }
-                    
-                    # Install and verify Jest only when needed for testing
-                    echo "Installing Jest for testing..."
-                    npx jest --version || {
-                        echo "Jest not found, installing..."
-                        npm install jest --save-dev
-                        npx jest --version
-                    }
-                    
-                    # Run linting
+                    # Run linting using npm script (dependencies already installed in Build stage)
                     echo "Running ESLint..."
-                    npx eslint 'js/**/*.js' --max-warnings 0
+                    npm run lint:check
                     
-                    # Run tests
+                    # Run tests using npm script
                     echo "Running Jest tests..."
-                    npx jest
+                    npm test
                 '''
             }
             post {
