@@ -112,7 +112,33 @@ pipeline {
             steps {
                 echo "📦 Building project..."
                 sh '''
+                    # Debug: Check package.json content
+                    echo "=== Checking package.json ==="
+                    cat package.json | grep -A 20 "devDependencies"
+                    
+                    # Install dependencies
                     npm install
+                    
+                    # Debug: Check what was installed
+                    echo "=== Checking installed packages ==="
+                    ls -la node_modules/.bin/ | grep -E "(eslint|jest)" || echo "No eslint/jest found"
+                    
+                    # Force install ESLint if missing
+                    if [ ! -f "node_modules/.bin/eslint" ]; then
+                        echo "ESLint missing, installing explicitly..."
+                        npm install eslint@^9.35.0 --save-dev
+                    fi
+                    
+                    # Force install Jest if missing
+                    if [ ! -f "node_modules/.bin/jest" ]; then
+                        echo "Jest missing, installing explicitly..."
+                        npm install jest@^30.1.3 --save-dev
+                    fi
+                    
+                    # Final verification
+                    echo "=== Final verification ==="
+                    ls -la node_modules/.bin/eslint || echo "ESLint still missing"
+                    ls -la node_modules/.bin/jest || echo "Jest still missing"
                 '''
             }
         }
