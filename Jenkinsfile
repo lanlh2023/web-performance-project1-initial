@@ -232,6 +232,16 @@ pipeline {
             // Archive artifacts
             archiveArtifacts artifacts: 'index.html,404.html,css/**,js/**,images/**,eslint.config.js,package.json', allowEmptyArchive: true
         }
+        success {
+            script {
+                sendSlackNotification(true)
+            }
+        }
+        failure {
+            script {
+                sendSlackNotification(false)
+            }
+        }
     }
 }
 
