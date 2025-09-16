@@ -1,7 +1,5 @@
 pipeline {
-    agent {
-        docker any
-    }
+    agent any
 
     triggers {
         // Poll SCM every minute for changes
