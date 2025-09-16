@@ -1,5 +1,5 @@
-const js = require("@eslint/js");
-const globals = require("globals");
+const js = require("/usr/lib/node_modules/@eslint/js");
+const globals = require("/usr/lib/node_modules/globals");
 
 module.exports = [
   {
