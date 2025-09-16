@@ -113,26 +113,7 @@ pipeline {
             steps {
                 echo "📦 Building project..."
                 sh '''
-                    # Set npm environment for Jenkins
-                    export PATH="$PWD/node_modules/.bin:$PATH"
-                    
-                    # Clean và install
-                    rm -rf node_modules package-lock.json
-                    npm cache clean --force
-                    
-                    # Install all dependencies from package.json
-                    npm install --no-optional --no-audit
-                    
-                    # Verify Firebase CLI (needed for deployment)
-                    echo "Verifying Firebase CLI..."
-                    firebase --version || exit 1
-                    
-                    # Verify ESLint and Jest are installed
-                    echo "Verifying development tools..."
-                    npx eslint --version || exit 1
-                    npx jest --version || exit 1
-                    
-                    echo "✅ Build completed successfully"
+                    npm install
                 '''
             }
         }
@@ -141,16 +122,7 @@ pipeline {
             steps {
                 echo "🧪 Running linting and tests..."
                 sh '''
-                    # Set npm environment for Jenkins
-                    export PATH="$PWD/node_modules/.bin:$PATH"
-                    
-                    # Run linting using npm script (dependencies already installed in Build stage)
-                    echo "Running ESLint..."
-                    npm run lint:check
-                    
-                    # Run tests using npm script
-                    echo "Running Jest tests..."
-                    npm test
+                    npm run test:ci
                 '''
             }
             post {
