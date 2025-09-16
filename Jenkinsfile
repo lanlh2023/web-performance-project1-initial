@@ -262,17 +262,18 @@ def sendSlackNotification(boolean isSuccess) {
         writeFile file: 'payload.json', text: payload
 
         withCredentials([string(credentialsId: 'slack-token', variable: 'SLACK_TOKEN')]) {
-            def webhookUrl = env.SLACK_TOKEN.startsWith("https://") ? env.SLACK_TOKEN : 
-                            "https://hooks.slack.com/services/T07EZNQV8QM/B07F8JQKQPF/${env.SLACK_TOKEN}"
+            // Use the SLACK_TOKEN directly as full webhook URL
+            def webhookUrl = env.SLACK_TOKEN
 
+            // Use shell script with proper escaping to avoid Groovy interpolation warning
             def result = sh(
-                script: """
+                script: '''
                     curl -X POST -H "Content-type: application/json" \\
                          --data @payload.json \\
                          --connect-timeout 10 --max-time 30 \\
                          -w "%{http_code}" -s -o /dev/null \\
-                         "${webhookUrl}"
-                """,
+                         "''' + webhookUrl + '''"
+                ''',
                 returnStdout: true
             ).trim()
 
