@@ -1,6 +1,17 @@
-const js = require("/usr/lib/node_modules/@eslint/js");
-const globals = require("/usr/lib/node_modules/globals");
+let js, globals;
 
+try {
+    js = require("@eslint/js");
+    globals = require("globals");
+} catch (error) {
+    try {
+        js = require("/usr/lib/node_modules/@eslint/js");
+        globals = require("/usr/lib/node_modules/globals");
+    } catch (globalError) {
+        console.error("Cannot load required modules:", error.message);
+        process.exit(1);
+    }
+}
 module.exports = [
   {
     files: ["**/*.{js,mjs,cjs}"],
