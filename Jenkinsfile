@@ -251,40 +251,35 @@ def sendSlackNotification(boolean isSuccess) {
         def author = sh(script: 'git log -1 --pretty=format:"%an" 2>/dev/null || echo "Unknown"', returnStdout: true).trim()
         def releaseDate = sh(script: 'date +%Y%m%d', returnStdout: true).trim()
 
-        // Build message
-        def message = isSuccess ? 
-            ":white_check_mark: *SUCCESS*\n:bust_in_silhouette: ${author}\n:gear: ${env.JOB_NAME} #${env.BUILD_NUMBER}\n:calendar: Release: ${releaseDate}" +
-            getDeploymentLinks() :
-            ":x: *FAILURE*\n:bust_in_silhouette: ${author}\n:gear: ${env.JOB_NAME} #${env.BUILD_NUMBER}\n:page_with_curl: ${env.BUILD_URL}console"
-
-        // Send notification using webhook
-        def payload = groovy.json.JsonOutput.toJson([text: message, username: "Jenkins", icon_emoji: ":jenkins:"])
-        writeFile file: 'payload.json', text: payload
-
-        withCredentials([string(credentialsId: 'slack-token', variable: 'SLACK_TOKEN')]) {
-            // Use the SLACK_TOKEN directly as full webhook URL
-            def webhookUrl = env.SLACK_TOKEN
-
-            // Use shell script with proper escaping to avoid Groovy interpolation warning
-            def result = sh(
-                script: '''
-                    curl -X POST -H "Content-type: application/json" \\
-                         --data @payload.json \\
-                         --connect-timeout 10 --max-time 30 \\
-                         -w "%{http_code}" -s -o /dev/null \\
-                         "''' + webhookUrl + '''"
-                ''',
-                returnStdout: true
-            ).trim()
-
-            if (result == '200') {
-                echo "✅ Slack notification sent successfully"
-            } else {
-                echo "⚠️ Slack notification failed (HTTP: ${result})"
-            }
+        // Build message and set color
+        def message = ""
+        def color = ""
+        
+        if (isSuccess) {
+            message = ":white_check_mark: *BUILD SUCCESS*\n" +
+                     ":bust_in_silhouette: Author: ${author}\n" +
+                     ":gear: Job: ${env.JOB_NAME} #${env.BUILD_NUMBER}\n" +
+                     ":calendar: Release: ${releaseDate}" +
+                     getDeploymentLinks()
+            color = "good"  // Green color
+        } else {
+            message = ":x: *BUILD FAILED*\n" +
+                     ":bust_in_silhouette: Author: ${author}\n" +
+                     ":gear: Job: ${env.JOB_NAME} #${env.BUILD_NUMBER}\n" +
+                     ":page_with_curl: Console: ${env.BUILD_URL}console"
+            color = "danger"  // Red color
         }
 
-        sh 'rm -f payload.json'
+        // Send notification using Slack plugin
+        slackSend(
+            channel: '#lnd-2025-workshop',  // Change to your channel
+            color: color,
+            message: message,
+            teamDomain: 'ventura-vn',  // Change to your Slack workspace
+            token: env.SLACK_WEBHOOK_URL  // Use existing environment variable
+        )
+
+        echo "✅ Slack notification sent successfully using plugin"
 
     } catch (Exception e) {
         echo "⚠️ Slack notification error: ${e.getMessage()}"
