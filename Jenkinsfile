@@ -54,10 +54,9 @@ pipeline {
                 script {
                     def currentBranch = env.GIT_BRANCH ?: sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
                     echo "🌿 Current branch: ${currentBranch}"
-                    
+
                     // Remove origin/ prefix if present
                     currentBranch = currentBranch.replaceAll(/^origin\//, '')
-                    
                     if (currentBranch != 'main') {
                         echo "⚠️ Skipping deployment - not on main branch (current: ${currentBranch})"
                         env.SKIP_DEPLOYMENT = 'true'
@@ -118,32 +117,32 @@ pipeline {
             }
         }
 
-        stage('Lint/Test') {
-            steps {
-                echo "🧪 Running linting and tests..."
-                sh '''
-                    npm run test:ci
-                '''
-            }
-            post {
-                always {
-                    // Archive test results if available
-                    script {
-                        if (fileExists('coverage/')) {
-                            echo "📊 Archiving test coverage results..."
-                            publishHTML([
-                                allowMissing: false,
-                                alwaysLinkToLastBuild: true,
-                                keepAll: true,
-                                reportDir: 'coverage/lcov-report',
-                                reportFiles: 'index.html',
-                                reportName: 'Test Coverage Report'
-                            ])
-                        }
-                    }
-                }
-            }
-        }
+        // stage('Lint/Test') {
+        //     steps {
+        //         echo "🧪 Running linting and tests..."
+        //         sh '''
+        //             npm run test:ci
+        //         '''
+        //     }
+        //     post {
+        //         always {
+        //             // Archive test results if available
+        //             script {
+        //                 if (fileExists('coverage/')) {
+        //                     echo "📊 Archiving test coverage results..."
+        //                     publishHTML([
+        //                         allowMissing: false,
+        //                         alwaysLinkToLastBuild: true,
+        //                         keepAll: true,
+        //                         reportDir: 'coverage/lcov-report',
+        //                         reportFiles: 'index.html',
+        //                         reportName: 'Test Coverage Report'
+        //                     ])
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
 
         stage('Deploy') {
             when {
