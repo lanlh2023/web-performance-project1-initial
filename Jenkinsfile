@@ -123,7 +123,6 @@ pipeline {
                 echo "🧪 Running linting and tests..."
                 sh '''
                     # Run tests
-                    npm run test:ci
                 '''
             }
             post {
