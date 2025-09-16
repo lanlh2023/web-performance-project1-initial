@@ -8,9 +8,6 @@
     "test:coverage": "jest --coverage",
     "test:ci": "npm run lint:check && npm test"
   },
-  "devDependencies": {
-    "jest-environment-jsdom": "^30.1.2"
-  },
   "jest": {
     "testEnvironment": "jsdom",
     "testMatch": [
