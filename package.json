@@ -2,12 +2,12 @@
   "name": "web-performance-project1-initial",
   "version": "1.0.0",
   "scripts": {
-    "lint": "eslint 'js/**/*.js'",
-    "lint:fix": "eslint 'js/**/*.js' --fix",
-    "lint:check": "eslint 'js/**/*.js' --max-warnings 0",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
+    "lint": "npx eslint 'js/**/*.js'",
+    "lint:fix": "npx eslint 'js/**/*.js' --fix",
+    "lint:check": "npx eslint 'js/**/*.js' --max-warnings 0",
+    "test": "npx jest",
+    "test:watch": "npx jest --watch",
+    "test:coverage": "npx jest --coverage",
     "test:ci": "npm run lint:check && npm test"
   },
   "devDependencies": {

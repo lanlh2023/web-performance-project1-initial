@@ -117,32 +117,41 @@ pipeline {
             }
         }
 
-        // stage('Lint/Test') {
-        //     steps {
-        //         echo "🧪 Running linting and tests..."
-        //         sh '''
-        //             npm run test:ci
-        //         '''
-        //     }
-        //     post {
-        //         always {
-        //             // Archive test results if available
-        //             script {
-        //                 if (fileExists('coverage/')) {
-        //                     echo "📊 Archiving test coverage results..."
-        //                     publishHTML([
-        //                         allowMissing: false,
-        //                         alwaysLinkToLastBuild: true,
-        //                         keepAll: true,
-        //                         reportDir: 'coverage/lcov-report',
-        //                         reportFiles: 'index.html',
-        //                         reportName: 'Test Coverage Report'
-        //                     ])
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
+        stage('Lint/Test') {
+            steps {
+                echo "🧪 Running linting and tests..."
+                sh '''
+                    # Set PATH to include node_modules/.bin for Jenkins
+                    export PATH="$PWD/node_modules/.bin:$PATH"
+                    
+                    # Debug: Check if eslint exists
+                    echo "Checking ESLint installation..."
+                    ls -la node_modules/.bin/eslint || echo "ESLint not found in node_modules/.bin"
+                    which eslint || echo "ESLint not found in PATH"
+                    
+                    # Run test:ci with proper PATH
+                    npm run test:ci
+                '''
+            }
+            post {
+                always {
+                    // Archive test results if available
+                    script {
+                        if (fileExists('coverage/')) {
+                            echo "📊 Archiving test coverage results..."
+                            publishHTML([
+                                allowMissing: false,
+                                alwaysLinkToLastBuild: true,
+                                keepAll: true,
+                                reportDir: 'coverage/lcov-report',
+                                reportFiles: 'index.html',
+                                reportName: 'Test Coverage Report'
+                            ])
+                        }
+                    }
+                }
+            }
+        }
 
         stage('Deploy') {
             when {
