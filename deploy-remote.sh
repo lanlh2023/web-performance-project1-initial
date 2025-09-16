@@ -163,8 +163,9 @@ update_symlinks_and_cleanup() {
     ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$DEPLOY_SERVER" \
         "cd $REMOTE_BASE_PATH/$DEPLOY_USER && \
          echo 'Updating current symlink...' && \
+         cd deploy && \
          rm -f current && \
-         ln -sf deploy/$TIMESTAMP current && \
+         ln -sf $TIMESTAMP current && \
          if [[ -L current && -d current ]]; then \
              echo 'Current symlink updated successfully'; \
          else \
@@ -183,7 +184,7 @@ update_symlinks_and_cleanup() {
 get_deployment_info() {
     log "Getting deployment information..."
     
-    local deployment_url="http://$WEB_SERVER/jenkins/$DEPLOY_USER/current/"
+    local deployment_url="http://$WEB_SERVER/jenkins/$DEPLOY_USER/deploy/current/"
     local project_url="http://$WEB_SERVER/jenkins/$DEPLOY_USER/web-performance-project1-initial/"
     
     echo ""

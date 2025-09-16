@@ -10,7 +10,7 @@ PROJECT_NAME="web-performance-project1-initial"
 DEPLOY_BASE_DIR="$(cd .. && pwd)/template2"  # jenkins-ws/template2
 PROJECT_DIR="${DEPLOY_BASE_DIR}/${PROJECT_NAME}"
 DEPLOY_DIR="${DEPLOY_BASE_DIR}/deploy"
-CURRENT_DIR="${DEPLOY_BASE_DIR}/current"
+CURRENT_DIR="${DEPLOY_BASE_DIR}/deploy/current"
 
 # Get current timestamp for deployment folder
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
@@ -115,9 +115,9 @@ update_symlink() {
         rm -rf "$CURRENT_DIR"
     fi
     
-    # Create new symlink (relative path)
-    cd "$DEPLOY_BASE_DIR"
-    ln -sf "deploy/$TIMESTAMP" "current"
+    # Create new symlink (relative path) inside deploy directory
+    cd "$DEPLOY_BASE_DIR/deploy"
+    ln -sf "$TIMESTAMP" "current"
     cd - > /dev/null
     
     success "Symlink updated: current -> $TIMESTAMP"
@@ -152,7 +152,7 @@ verify_deployment() {
     log "Verifying deployment..."
     
     # Check if symlink exists and points to correct location
-    EXPECTED_LINK="deploy/$TIMESTAMP"
+    EXPECTED_LINK="$TIMESTAMP"
     if [[ -L "$CURRENT_DIR" ]] && [[ "$(readlink "$CURRENT_DIR")" == "$EXPECTED_LINK" ]]; then
         success "Symlink verification passed"
     else
@@ -195,8 +195,8 @@ show_deployment_info() {
     echo "  │   └── images/"
     echo "  ├── deploy/"
     echo "  │   ├── $TIMESTAMP/"
+    echo "  │   ├── current -> $TIMESTAMP"
     echo "  │   └── ..."
-    echo "  └── current -> deploy/$TIMESTAMP"
 }
 
 # Main deployment process

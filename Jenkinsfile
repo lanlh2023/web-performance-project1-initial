@@ -244,16 +244,6 @@ pipeline {
             // Archive artifacts
             archiveArtifacts artifacts: 'index.html,404.html,css/**,js/**,images/**,eslint.config.js,package.json', allowEmptyArchive: true
         }
-        success {
-            script {
-                sendSlackNotification(true)
-            }
-        }
-        failure {
-            script {
-                sendSlackNotification(false)
-            }
-        }
     }
 }
 
@@ -266,19 +256,19 @@ def sendSlackNotification(boolean isSuccess) {
         // Build message and set color
         def message = ""
         def color = ""
-        
+
         if (isSuccess) {
             message = ":white_check_mark: *BUILD SUCCESS*\n" +
-                     ":bust_in_silhouette: Author: ${author}\n" +
-                     ":gear: Job: ${env.JOB_NAME} #${env.BUILD_NUMBER}\n" +
-                     ":calendar: Release: ${releaseDate}" +
+                     "Author: ${author}\n" +
+                     "Job: ${env.JOB_NAME} #${env.BUILD_NUMBER}\n" +
+                     "Release: ${releaseDate}" +
                      getDeploymentLinks()
             color = "good"  // Green color
         } else {
             message = ":x: *BUILD FAILED*\n" +
-                     ":bust_in_silhouette: Author: ${author}\n" +
-                     ":gear: Job: ${env.JOB_NAME} #${env.BUILD_NUMBER}\n" +
-                     ":page_with_curl: Console: ${env.BUILD_URL}console"
+                     "Author: ${author}\n" +
+                     "Job: ${env.JOB_NAME} #${env.BUILD_NUMBER}\n" +
+                     "Console: ${env.BUILD_URL}console"
             color = "danger"  // Red color
         }
 
