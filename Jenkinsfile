@@ -122,7 +122,7 @@ pipeline {
             steps {
                 echo "🧪 Running linting and tests..."
                 sh '''
-                    # Run tests
+                    npm run test:ci
                 '''
             }
             post {
@@ -173,17 +173,8 @@ pipeline {
                         cp -r css js images deploy-staging/
                         [ -f firebase.json ] && cp firebase.json deploy-staging/
                         [ -f .firebaserc ] && cp .firebaserc deploy-staging/
-                        
-                        # Debug: Check if config files exist before copying
-                        echo "=== Checking config files ==="
-                        ls -la eslint.config.js package.json || echo "Config files not found"
-                        
-                        [ -f eslint.config.js ] && cp eslint.config.js deploy-staging/ && echo "✓ Copied eslint.config.js"
-                        [ -f package.json ] && cp package.json deploy-staging/ && echo "✓ Copied package.json"
-                        
-                        # Debug: Check what's in deploy-staging
-                        echo "=== Contents of deploy-staging ==="
-                        ls -la deploy-staging/
+                        [ -f eslint.config.js ] && cp eslint.config.js deploy-staging/
+                        [ -f package.json ] && cp package.json deploy-staging/
 
                         echo "✅ Deployment package prepared"
                     '''
@@ -235,21 +226,11 @@ pipeline {
 
     post {
         always {
-            // Debug: Check workspace files before archiving
-            sh '''
-                echo "=== Workspace files before archiving ==="
-                ls -la | grep -E "(eslint|package|index|404)" || echo "No config files found in workspace"
-                
-                echo "=== Specific file check ==="
-                [ -f eslint.config.js ] && echo "✓ eslint.config.js exists" || echo "❌ eslint.config.js missing"
-                [ -f package.json ] && echo "✓ package.json exists" || echo "❌ package.json missing"
-            '''
+            // Clean up
+            sh 'rm -rf deploy-staging'
 
             // Archive artifacts
             archiveArtifacts artifacts: 'index.html,404.html,css/**,js/**,images/**,eslint.config.js,package.json', allowEmptyArchive: true
-
-            // Clean up
-            sh 'rm -rf deploy-staging'
         }
     }
 }
