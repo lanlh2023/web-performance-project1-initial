@@ -92,6 +92,8 @@ prepare_build() {
         "css"
         "js"
         "images"
+        "eslint.config.js"
+        "package.json"
     )
 
     for item in "${ESSENTIAL_FILES[@]}"; do

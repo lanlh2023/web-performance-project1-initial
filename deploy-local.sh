@@ -74,6 +74,8 @@ copy_files() {
         "css"
         "js"
         "images"
+        "eslint.config.js"
+        "package.json"
     )
     
     # Copy files to project directory (only if different from current directory)

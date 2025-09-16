@@ -111,6 +111,33 @@ create_remote_directories() {
     success "Remote directories created"
 }
 
+# Prepare build directory for remote deployment
+prepare_build_for_remote() {
+    log "Preparing build directory for remote deployment..."
+    
+    # List of essential files and directories to verify/copy
+    ESSENTIAL_FILES=(
+        "index.html"
+        "404.html"
+        "css"
+        "js"
+        "images"
+        "eslint.config.js"
+        "package.json"
+    )
+    
+    # Verify all essential files exist in BUILD_DIR
+    for item in "${ESSENTIAL_FILES[@]}"; do
+        if [[ -e "$BUILD_DIR/$item" ]]; then
+            log "✓ Found $item in build directory"
+        else
+            warning "File/directory $item not found in build directory"
+        fi
+    done
+    
+    success "Build directory verification completed"
+}
+
 # Upload deployment files
 upload_files() {
     log "Uploading deployment files..."
@@ -222,6 +249,7 @@ main() {
     # Run deployment steps
     check_prerequisites
     test_ssh_connection
+    prepare_build_for_remote
     create_remote_directories
     upload_files
     update_symlinks_and_cleanup

@@ -114,55 +114,8 @@ pipeline {
             steps {
                 echo "📦 Building project..."
                 sh '''
-                    # Debug: Check Node.js and npm versions
-                    echo "=== Checking Node.js and npm versions ==="
-                    node --version
-                    npm --version
-                    echo "Required: Node >=18.0.0, npm >=8.0.0"
-                    
-                    # Debug: Check package.json content
-                    echo "=== Checking package.json ==="
-                    cat package.json | grep -A 20 "devDependencies"
-                    
-                    # Aggressive cleanup and fresh install
-                    echo "=== Aggressive cleanup ==="
-                    rm -rf node_modules package-lock.json
-                    npm cache clean --force
-                    
-                    # Force fresh install with verbose output
-                    echo "=== Fresh install ==="
-                    npm install --verbose
-                    
-                    # Check if node_modules was created properly
-                    echo "=== Checking node_modules structure ==="
-                    ls -la node_modules/ | head -10
-                    ls -la node_modules/.bin/ | head -10 || echo "node_modules/.bin/ does not exist"
-                    
-                    # If still missing, try different approach
-                    if [ ! -d "node_modules/.bin" ]; then
-                        echo "=== node_modules/.bin missing, trying alternative install ==="
-                        npm install --no-package-lock --no-optional
-                    fi
-                    
-                    # Manual install if still failing
-                    if [ ! -f "node_modules/.bin/eslint" ]; then
-                        echo "=== Manual install of each package ==="
-                        npm install eslint@9.35.0 --save-dev --no-package-lock
-                        npm install @eslint/js@9.35.0 --save-dev --no-package-lock  
-                        npm install globals@16.4.0 --save-dev --no-package-lock
-                        npm install jest@30.1.3 --save-dev --no-package-lock
-                        npm install jest-environment-jsdom@30.1.2 --save-dev --no-package-lock
-                        npm install eslint-plugin-jest@29.0.1 --save-dev --no-package-lock
-                    fi
-                    
-                    # Final verification
-                    echo "=== Final verification ==="
-                    ls -la node_modules/.bin/eslint || echo "ESLint still missing"
-                    ls -la node_modules/.bin/jest || echo "Jest still missing"
-                    
-                    # Test ESLint config can load
-                    echo "=== Testing ESLint config ==="
-                    node -e "try { require('./eslint.config.js'); console.log('✅ ESLint config loads successfully'); } catch(e) { console.log('❌ ESLint config error:', e.message); }"
+                    # Install dependencies
+                    npm install
                 '''
             }
         }
@@ -171,15 +124,7 @@ pipeline {
             steps {
                 echo "🧪 Running linting and tests..."
                 sh '''
-                    # Set PATH to include node_modules/.bin for Jenkins
-                    export PATH="$PWD/node_modules/.bin:$PATH"
-                    
-                    # Debug: Check if eslint exists
-                    echo "Checking ESLint installation..."
-                    ls -la node_modules/.bin/eslint || echo "ESLint not found in node_modules/.bin"
-                    which eslint || echo "ESLint not found in PATH"
-                    
-                    # Run test:ci with proper PATH
+                    # Run tests
                     npm run test:ci
                 '''
             }
@@ -231,6 +176,8 @@ pipeline {
                         cp -r css js images deploy-staging/
                         [ -f firebase.json ] && cp firebase.json deploy-staging/
                         [ -f .firebaserc ] && cp .firebaserc deploy-staging/
+                        [ -f eslint.config.js ] && cp eslint.config.js deploy-staging/
+                        [ -f package.json ] && cp package.json deploy-staging/
 
                         echo "✅ Deployment package prepared"
                     '''
@@ -286,7 +233,7 @@ pipeline {
             sh 'rm -rf deploy-staging'
 
             // Archive artifacts
-            archiveArtifacts artifacts: 'index.html,404.html,css/**,js/**,images/**', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'index.html,404.html,css/**,js/**,images/**,eslint.config.js,package.json', allowEmptyArchive: true
         }
     }
 }
